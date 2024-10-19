@@ -24,8 +24,8 @@ class RK4Env(VecEnv):
     def __init__(
             self,
             num_envs: int,
-            num_obs: int = 8,  # [x, y, dot x, dot y, Tx, Ty, gx, gy]
-            num_actions: int = 2,  # [Tx, Ty]
+            num_obs: int = 8,  # [x, y, dot x, dot y, Tx, Ty ,gx, gy]
+            num_actions: int = 2,  # [Tx,Ty]
             config: Dict = config,
             dynamics_func: Callable = double_integrator_dynamics,
             rew_func: Callable = double_integrator_rewards,
@@ -83,9 +83,9 @@ class RK4Env(VecEnv):
         for _ in range(self.decimation):
             self.buf_obs[:, 0:4] = rk4(
                 self.dynamics,
-                self.buf_obs[:, 0:4],
+                self.buf_obs[:, 0:4] ,
                 self.sim_dt,
-                u=self.actions
+                u=self.actions,
             )
         self.buf_rews = self.rew_func(self.buf_obs, self.actions)
         self.buf_obs[:, 4:6] = self.actions
@@ -139,16 +139,6 @@ class RK4Env(VecEnv):
         if 0 in idx and self.counter > 1:
             self.plot = self.render()
             self.counter = 0
-        x0 = self.rng.uniform(
-            low=self.cfg["ic_range"]["x"][0],
-            high=self.cfg["ic_range"]["x"][1],
-            size=(len(idx), 1),
-        )
-        y0 = self.rng.uniform(
-            low=self.cfg["ic_range"]["y"][0],
-            high=self.cfg["ic_range"]["y"][1],
-            size=(len(idx), 1),
-        )
         vx0 = self.rng.uniform(
             low=self.cfg["ic_range"]["vx"][0],
             high=self.cfg["ic_range"]["vx"][1],
@@ -161,13 +151,23 @@ class RK4Env(VecEnv):
         )
         T = np.zeros((len(idx), 2), dtype=np.float32)
         gx = self.rng.uniform(
-            low=self.cfg["range"]["x"][0],
-            high=self.cfg["range"]["x"][1],
+            low=self.cfg["target_range"]["x"][0],
+            high=self.cfg["target_range"]["x"][1],
             size=(len(idx), 1),
         )
         gy = self.rng.uniform(
-            low=self.cfg["range"]["y"][0],
-            high=self.cfg["range"]["y"][1],
+            low=self.cfg["target_range"]["y"][0],
+            high=self.cfg["target_range"]["y"][1],
+            size=(len(idx), 1),
+        )
+        x0 = self.rng.uniform(
+            low= gx - 650, #Expected x-range from initial drop location with just gravitational force and V0x
+            high= gx - 600,
+            size=(len(idx), 1),
+        )
+        y0 = self.rng.uniform(
+            low=self.cfg["ic_range"]["y"][0],
+            high=self.cfg["ic_range"]["y"][1],
             size=(len(idx), 1),
         )
         obs = np.concatenate((x0, y0, vx0, vy0, T, gx, gy), axis=1)
@@ -184,6 +184,8 @@ class RK4Env(VecEnv):
     def render(self) -> matplotlib.figure.Figure:
         obs_plot = self.obs_hist[:self.counter]
         fig, ax = plt.subplots()
+        for obs in obs_plot:
+            ax.arrow(obs[0],obs[1],obs[4],obs[5]) #thrusting
         ax.plot(obs_plot[:, 0], obs_plot[:, 1])  # trajectory
         ax.scatter(obs_plot[0, 0], obs_plot[0, 1])  # ic
         ax.scatter(obs_plot[0, 6], obs_plot[0, 7])  # goal
