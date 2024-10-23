@@ -4,6 +4,7 @@ import gymnasium as gym
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import math
 from stable_baselines3.common.vec_env.base_vec_env import (
     VecEnv, VecEnvStepReturn, VecEnvObs, VecEnvIndices
 )
@@ -91,10 +92,10 @@ class RK4Env(VecEnv):
         self.buf_obs[:, 4:6] = self.actions
         self.obs_hist[self.counter] = self.buf_obs[0]
         terminated = \
-            (self.buf_obs[:, 0] < self.cfg["range"]["x"][0]) | \
-            (self.buf_obs[:, 0] > self.cfg["range"]["x"][1]) | \
-            (self.buf_obs[:, 1] < self.cfg["range"]["y"][0]) | \
-            (self.buf_obs[:, 1] > self.cfg["range"]["y"][1])
+            (self.buf_obs[:, 0] < self.cfg["env_range"]["x"][0]) | \
+            (self.buf_obs[:, 0] > self.cfg["env_range"]["x"][1]) | \
+            (self.buf_obs[:, 1] < self.cfg["env_range"]["y"][0]) | \
+            (self.buf_obs[:, 1] > self.cfg["env_range"]["y"][1])
         truncated = (
             (np.linalg.norm(
                 self.buf_obs[:, 0:2], axis=1
@@ -136,40 +137,53 @@ class RK4Env(VecEnv):
     def reset_idx(self, indices: VecEnvIndices = None) -> VecEnvObs:
         idx = self._get_indices(indices)
         # save trajectory for env[0]
+        
         if 0 in idx and self.counter > 1:
             self.plot = self.render()
             self.counter = 0
-        x0 = self.rng.uniform(
-            low=self.cfg["ic_range"]["x"][0],
-            high=self.cfg["ic_range"]["x"][1],
-            size=(len(idx), 1),
-        )
-        y0 = self.rng.uniform(
-            low=self.cfg["ic_range"]["y"][0],
-            high=self.cfg["ic_range"]["y"][1],
-            size=(len(idx), 1),
-        )
-        vx0 = self.rng.uniform(
-            low=self.cfg["ic_range"]["vx"][0],
-            high=self.cfg["ic_range"]["vx"][1],
-            size=(len(idx), 1),
-        )
-        vy0 = self.rng.uniform(
-            low=self.cfg["ic_range"]["vy"][0],
-            high=self.cfg["ic_range"]["vy"][1],
-            size=(len(idx), 1),
-        )
-        T = np.zeros((len(idx), 2), dtype=np.float32)
         gx = self.rng.uniform(
-            low=self.cfg["range"]["x"][0],
-            high=self.cfg["range"]["x"][1],
+            low=self.cfg["goal_ic_range"]["x"][0],
+            high=self.cfg["goal_ic_range"]["x"][1],
             size=(len(idx), 1),
         )
         gy = self.rng.uniform(
-            low=self.cfg["range"]["y"][0],
-            high=self.cfg["range"]["y"][1],
+            low=self.cfg["goal_ic_range"]["y"][0],
+            high=self.cfg["goal_ic_range"]["y"][1],
             size=(len(idx), 1),
         )
+        vx0 = self.rng.uniform(
+            low=self.cfg["drone_ic_range"]["vx"][0],
+            high=self.cfg["drone_ic_range"]["vx"][1],
+            size=(len(idx), 1),
+        )
+        vy0 = self.rng.uniform(
+            low=self.cfg["drone_ic_range"]["vy"][0],
+            high=self.cfg["drone_ic_range"]["vy"][1],
+            size=(len(idx), 1),
+        )
+        y0 = self.rng.uniform(
+            low=self.cfg["drone_ic_range"]["y"][0],
+            high=self.cfg["drone_ic_range"]["y"][1],
+            size=(len(idx), 1),
+        )
+        x0 = []
+        for condition in range(len(idx)):
+            # print("here")
+            t1 = (vy0[condition][0] + math.sqrt(vy0[condition][0]**2 - 2 * -9.81 * (y0[condition][0] - gy[condition][0]))) / -9.81
+            # print(t1)
+            t2 = (vy0[condition][0] - math.sqrt(vy0[condition][0]**2 - 2 * -9.81 * (y0[condition][0] - gy[condition][0]))) / -9.81
+            # print(t1)
+            t = max(t1, t2)
+            # print(t)
+            x_initial = gx[condition][0] - vx0[condition][0] * t
+            # print("VeloX: " vx0[condition][0] ++ vx_initial)
+            current_x = self.rng.uniform(
+            low=x_initial + self.cfg["drone_ic_range"]["x_range"][0],
+            high=x_initial + self.cfg["drone_ic_range"]["x_range"][1])
+            x0.append([current_x])
+
+        
+        T = np.zeros((len(idx), 2), dtype=np.float32)
         obs = np.concatenate((x0, y0, vx0, vy0, T, gx, gy), axis=1)
         t = np.zeros((len(idx),), dtype=np.float32)
         return obs, t

@@ -2,24 +2,29 @@ import torch
 
 config = {
     "num_envs": 1_000,
-    "device": "cpu",
+    "device": "cuda",
     "seed": 0,
     "sim_dt": 0.01,
     "policy_dt": 0.01,
     "max_effort": 100,
-    "range": {
-        "x": (-10, 10),
-        "y": (0, 10),
+    "env_range": {
+        "x": (-10000, 10000),
+        "y": (0, 5000),
     },
-    "ic_range": {
-        "x": (-5, 5),
-        "y": (8, 10),
-        "vx": (-1, 1),
-        "vy": (-1, 0),
+    "goal_ic_range": {
+        "x": (-20, 20),
+        "y": (0, 100),
     },
-    "target_distance": 0.1,
+    "drone_ic_range": {
+        "x": (-2000, 2000),
+        "x_range": (-20, 20),
+        "y": (900, 1000),
+        "vx": (-45, 45),
+        "vy": (0, 0),
+    },
+    "target_distance": 1,
     "target_speed": 0.0,
-    "max_time": 10,
+    "max_time": 50,
     "max_steps": 1_000_000_000,
     "policy_cls": "MlpPolicy",
     "policy_kwargs": dict(
