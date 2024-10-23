@@ -25,7 +25,8 @@ class RK4Env(VecEnv):
             self,
             num_envs: int,
             num_obs: int = 8,  # [x, y, dot x, dot y, Tx, Ty ,gx, gy]
-            num_actions: int = 2,  # [Tx,Ty]
+            num_actions: int = 2,  # [Tx,Ty] need to eventually modify for only x thrust
+            #num_actions_disc: int = 2, #[0,1] 1 for slow down to 5 m/s, 0 for continue normal tracking
             config: Dict = config,
             dynamics_func: Callable = double_integrator_dynamics,
             rew_func: Callable = double_integrator_rewards,
@@ -47,7 +48,9 @@ class RK4Env(VecEnv):
             shape=(num_actions,),
             dtype=np.float32,
             seed=self.cfg["seed"],
-        )
+        ) 
+        #self.action_space_discrete = gym.spaces.Discrete(num_actions_disc),
+        
 
         self.reset_infos: List[Dict[str, Any]] = [{} for _ in range(num_envs)]
         self._seeds: List[Optional[int]] = [None for _ in range(num_envs)]
