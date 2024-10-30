@@ -9,8 +9,9 @@ class WandBVideoCallback(BaseCallback):
         self.counter = 0
 
     def _on_step(self) -> bool:
-        if self.training_env.plot is not None and self.counter > 1000:
+        if self.training_env.plot is not None and self.counter > 100 :
             wandb.log({"plot": wandb.Image(self.training_env.plot)})
+            print("plot callback")
             self.counter = 0    
         self.counter += 1
         return True

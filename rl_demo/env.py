@@ -34,6 +34,7 @@ class RK4Env(VecEnv):
         self.cfg = config
         self.dynamics = dynamics_func
         self.rew_func = rew_func
+        self.plotting_tracker = 0
 
         self.observation_space = gym.spaces.Box(
             low=-np.inf,
@@ -99,10 +100,10 @@ class RK4Env(VecEnv):
         truncated = (
             (np.linalg.norm(
                 self.buf_obs[:, 0:2], axis=1
-            ) < self.target_distance) &
-            (np.linalg.norm(
-                self.buf_obs[:, 2:4], axis=1
-            ) < self.target_speed)
+            ) < self.target_distance) # &
+            # (np.linalg.norm(
+            #     self.buf_obs[:, 2:4], axis=1
+            # ) < self.target_speed)
             ) | \
             (self.t > self.max_time)
         self.buf_dones = terminated | truncated
@@ -139,7 +140,13 @@ class RK4Env(VecEnv):
         # save trajectory for env[0]
         
         if 0 in idx and self.counter > 1:
-            self.plot = self.render()
+            if self.plotting_tracker > self.cfg["plot_frequency"]:
+                print("Plotted")
+                self.plot = self.render()
+                self.plotting_tracker = 0
+            else:
+                print(self.plotting_tracker)
+                self.plotting_tracker += 1
             self.counter = 0
         gx = self.rng.uniform(
             low=self.cfg["goal_ic_range"]["x"][0],
@@ -182,7 +189,7 @@ class RK4Env(VecEnv):
             high=x_initial + self.cfg["drone_ic_range"]["x_range"][1])
             x0.append([current_x])
 
-        
+        print("generated IC's")
         T = np.zeros((len(idx), 2), dtype=np.float32)
         obs = np.concatenate((x0, y0, vx0, vy0, T, gx, gy), axis=1)
         t = np.zeros((len(idx),), dtype=np.float32)
@@ -196,11 +203,49 @@ class RK4Env(VecEnv):
         return self.buf_obs
 
     def render(self) -> matplotlib.figure.Figure:
-        obs_plot = self.obs_hist[:self.counter]
-        fig, ax = plt.subplots()
-        ax.plot(obs_plot[:, 0], obs_plot[:, 1])  # trajectory
-        ax.scatter(obs_plot[0, 0], obs_plot[0, 1])  # ic
-        ax.scatter(obs_plot[0, 6], obs_plot[0, 7])  # goal
+        if 1 == 2:
+            pass
+        else:
+            obs_plot = self.obs_hist[:self.counter]
+
+            # Calculate the magnitude of the combined velocity vector
+            velocity_magnitude = np.sqrt(obs_plot[:, 2]**2 + obs_plot[:, 3]**2)
+
+            # Create a color map based on velocity magnitude
+            norm = plt.Normalize(velocity_magnitude.min(), velocity_magnitude.max())
+            colors = plt.cm.viridis(norm(velocity_magnitude))
+
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
+            # Subplot 1: Trajectory with velocity magnitude gradient
+            for i in range(1, len(obs_plot)):
+                ax1.plot(obs_plot[i-1:i+1, 0], obs_plot[i-1:i+1, 1], color=colors[i-1], linewidth=2)
+
+            # Plot initial and goal points
+            ax1.scatter(obs_plot[0, 0], obs_plot[0, 1], color='red', s=100, label='Initial Point')
+            ax1.scatter(obs_plot[0, 6], obs_plot[0, 7], color='blue', s=100, label='Goal Point')
+
+            # Add colorbar for velocity magnitude
+            sm = plt.cm.ScalarMappable(cmap='viridis', norm=norm)
+            sm.set_array([])
+            cbar = fig.colorbar(sm, ax=ax1, label='Velocity Magnitude')
+
+            ax1.set_xlabel('X Position')
+            ax1.set_ylabel('Y Position')
+            ax1.legend()
+            ax1.set_title('Trajectory with Velocity Magnitude Gradient')
+            time = np.linspace(0, len(obs_plot[:, 1]) * self.sim_dt, self.sim_dt)
+            # Subplot 2: Thrust vs Y-location
+            ax2.plot(time, obs_plot[:, 4], label='X-Thrust', color='orange')
+            ax2.plot(time, obs_plot[:, 5], label='Y-Thrust', color='purple')
+
+            ax2.set_xlabel('Time')
+            ax2.set_ylabel('Thrust Value')
+            ax2.legend()
+            ax2.set_title('Thrust vs Time')
+
+            plt.tight_layout()
+            print("Plot made")
         return fig
 
     def _get_indices(self, indices: VecEnvIndices) -> Iterable[int]:

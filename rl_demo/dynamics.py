@@ -21,4 +21,4 @@ def double_integrator_dynamics(
         [1, 0],
         [0, 1],
     ], dtype=np.float32)
-    return np.einsum("ij,kj->ki", A, x) + np.einsum("ij,kj->ki", B, u - np.array([0, 9.8]))
+    return np.einsum("ij,kj->ki", A, x) + np.einsum("ij,kj->ki", B, u - np.array([0, 9.81]))
