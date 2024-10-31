@@ -35,6 +35,7 @@ class RK4Env(VecEnv):
         self.dynamics = dynamics_func
         self.rew_func = rew_func
         self.plotting_tracker = 0
+        self.plot_uploaded = False
 
         self.observation_space = gym.spaces.Box(
             low=-np.inf,
@@ -134,20 +135,28 @@ class RK4Env(VecEnv):
     def step(self, actions: np.ndarray) -> VecEnvStepReturn:
         self.step_async(actions)
         return self.step_wait()
+    
+    def uploaded(self, val: bool):
+        self.plot_uploaded = val
 
     def reset_idx(self, indices: VecEnvIndices = None) -> VecEnvObs:
         idx = self._get_indices(indices)
         # save trajectory for env[0]
         
         if 0 in idx and self.counter > 1:
-            if self.plotting_tracker >= self.cfg["plot_frequency"]:
-                print("Plotted")
-                self.plot = self.render()
-                self.plotting_tracker = 0
-            else:
-                print(self.plotting_tracker)
-                self.plotting_tracker += 1
+            self.plot = self.render()
+            self.plot_uploaded = False
             self.counter = 0
+        
+        # if 0 in idx and self.counter > 1:
+        #     if self.plotting_tracker >= self.cfg["plot_frequency"]:
+        #         print("Plotted")
+        #         self.plot = self.render()
+        #         self.plotting_tracker = 0
+        #     else:
+        #         print(self.plotting_tracker)
+        #         self.plotting_tracker += 1
+        #     self.counter = 0
         gx = self.rng.uniform(
             low=self.cfg["goal_ic_range"]["x"][0],
             high=self.cfg["goal_ic_range"]["x"][1],

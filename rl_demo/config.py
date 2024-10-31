@@ -24,15 +24,15 @@ config = {
     },
     "target_distance": 5,
     "target_speed": 0.0,
-    "max_time": 50,
+    "max_time": 50, # End of episode
     "max_steps": 1_000_000_000,
     "policy_cls": "MlpPolicy",
     "policy_kwargs": dict(
         activation_fn=torch.nn.ReLU,
-        net_arch=[32, 32, 32],
+        net_arch=[32, 32],
     ),
     "verbose": 1,
-    "rollout_steps": 100,
+    "rollout_steps": 100, # how man time steps per rollout before training
     "minibatch_size": 5000,
     "plot_frequency": 0,
 }

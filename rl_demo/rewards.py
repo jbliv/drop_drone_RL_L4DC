@@ -20,12 +20,6 @@ def double_integrator_rewards(x: np.ndarray, u: np.ndarray) -> np.ndarray:
     goal_closer = np.exp(-np.sqrt(np.abs(pose_error))/closer_std)
 
     goal_reached = np.where(pose_error < target_range, 1, 0)
-    if goal_reached.any():
-        print("fire go bye bye")
-    # if ():
-    #     wall_hit = 0
-    # else:
-    #     wall_hit = 1
 
     # regularizing rewards
     effort_penalty = -np.linalg.norm(u, axis=1) ** 2
