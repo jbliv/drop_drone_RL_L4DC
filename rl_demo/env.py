@@ -140,7 +140,7 @@ class RK4Env(VecEnv):
         # save trajectory for env[0]
         
         if 0 in idx and self.counter > 1:
-            if self.plotting_tracker > self.cfg["plot_frequency"]:
+            if self.plotting_tracker >= self.cfg["plot_frequency"]:
                 print("Plotted")
                 self.plot = self.render()
                 self.plotting_tracker = 0
@@ -234,7 +234,7 @@ class RK4Env(VecEnv):
             ax1.set_ylabel('Y Position')
             ax1.legend()
             ax1.set_title('Trajectory with Velocity Magnitude Gradient')
-            time = np.linspace(0, len(obs_plot[:, 1]) * self.sim_dt, self.sim_dt)
+            time = np.linspace(0, len(obs_plot[:, 1]) * self.sim_dt, len(obs_plot[:, 1]))
             # Subplot 2: Thrust vs Y-location
             ax2.plot(time, obs_plot[:, 4], label='X-Thrust', color='orange')
             ax2.plot(time, obs_plot[:, 5], label='Y-Thrust', color='purple')

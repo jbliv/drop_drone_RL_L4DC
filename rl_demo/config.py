@@ -34,5 +34,5 @@ config = {
     "verbose": 1,
     "rollout_steps": 100,
     "minibatch_size": 5000,
-    "plot_frequency": 1,
+    "plot_frequency": 0,
 }
