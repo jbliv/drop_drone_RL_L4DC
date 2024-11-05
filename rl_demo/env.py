@@ -57,7 +57,6 @@ class RK4Env(VecEnv):
         ))
 
         self.action_space = gym.spaces.flatten_space(self.action_space)
-
         
         self.reset_infos: List[Dict[str, Any]] = [{} for _ in range(num_envs)]
         self._seeds: List[Optional[int]] = [None for _ in range(num_envs)]
@@ -87,40 +86,47 @@ class RK4Env(VecEnv):
         self.counter = 0
         
     def step_async(self, actions: np.ndarray = None) -> None:
-        
         self.actions = actions
+    
 
     def step_wait(self) -> VecEnvStepReturn:
-        
+
+        obs_prev = np.copy(self.buf_obs)
+
         self.continuous_action = self.actions[:,0:2]
 
         # Sets the continuous values to 0 or 1 
         self.discrete_action = np.where(self.actions[:, 2] > 0.5, 1, 0)
+        self.discrete_action = np.where(obs_prev[:,6] == 1, 1, self.discrete_action)
         
-        indexes = np.where(self.discrete_action == 1)[0]
-        disc_obs = np.zeros(self.discrete_action.shape)
-
-        if indexes.size == 0:
-            pass
-        else:
-            first_index = indexes[0]
-            disc_obs[first_index:] = 1
-
-        self.buf_obs[:,6] = disc_obs
+        self.buf_obs[:,6] = self.discrete_action
         target_speed = -5
-        self.buf_obs[:,3] = np.where((self.buf_obs[:,6] == 1) & (self.buf_obs[:,3] < target_speed), target_speed, self.buf_obs[:,3])
-        
-        # Use the continuous actions for the dynamics update
+        self.buf_obs[:, 3] = np.where((self.buf_obs[:,6] == 1) & (self.buf_obs[:,3] < target_speed), target_speed, self.buf_obs[:,3])
+
+        #Use the continuous actions for the dynamics update
         for _ in range(self.decimation):
             self.buf_obs[:, 0:4] = rk4(
                 self.dynamics,
                 self.buf_obs[:, 0:4],
                 self.sim_dt,
-                u=self.continuous_action, 
+                u=self.continuous_action,
+                a=self.discrete_action   
             )
+       
 
-        self.buf_rews = self.rew_func(self.buf_obs, self.continuous_action)
+        
+        
+
+        #Use the continuous actions for the dynamics update
+    # Now that the state has been updated, apply the discrete action to the velocity
+      
+        # If the previous discrete action was 1, and the current discrete action is 1, clamp the velocity to target_speed
+        # (self.buf_obs[:, 3] < target_speed)
+        
+
+        self.buf_rews = self.rew_func(self.initial_distance, self.buf_obs, self.continuous_action)
         self.buf_obs[:, 4:6] = self.continuous_action
+        
         self.obs_hist[self.counter] = self.buf_obs[0]
         terminated = \
             (self.buf_obs[:, 0] < self.cfg["env_range"]["x"][0]) | \
@@ -162,12 +168,10 @@ class RK4Env(VecEnv):
         )
 
     def step(self, actions: np.ndarray) -> VecEnvStepReturn:
-        
         self.step_async(actions)
         return self.step_wait()
     
     def uploaded(self, val: bool):
-        
         self.plot_uploaded = val
 
     def reset_idx(self, indices: VecEnvIndices = None) -> VecEnvObs:
@@ -212,18 +216,16 @@ class RK4Env(VecEnv):
             size=(len(idx), 1),
         )
         
-
-        #the obs space not incorporates the deployed action
         obs = np.concatenate((x0, y0, vx0, vy0, T, D, gx, gy), axis=1)
         t = np.zeros((len(idx),), dtype=np.float32)
-        
+
         return obs, t
 
     def reset(self, seed=None, options=None) -> VecEnvObs:
         
         idx = self._get_indices(None)
         self.buf_obs, self.t = self.reset_idx(idx)
-        self.initial_distance = np.linalg.norm(self.buf_obs[:,])
+        self.initial_distance = self.buf_obs[:,7] - self.buf_obs[:,0]
         for idx in range(self.num_envs):
             self.reset_infos[idx] = {}
         return self.buf_obs
@@ -234,7 +236,7 @@ class RK4Env(VecEnv):
             pass
         else:
             obs_plot = self.obs_hist[:self.counter]
-
+            #first_index = np.argmax(obs_plot[:, 6] == 1)
             # Calculate the magnitude of the combined velocity vector
             velocity_magnitude = np.sqrt(obs_plot[:, 2]**2 + obs_plot[:, 3]**2)
 
@@ -246,11 +248,15 @@ class RK4Env(VecEnv):
 
             # Subplot 1: Trajectory with velocity magnitude gradient
             for i in range(1, len(obs_plot)):
-                ax1.plot(obs_plot[i-1:i+1, 0], obs_plot[i-1:i+1, 1], color=colors[i-1], linewidth=2)
+                ax1.plot(obs_plot[i-1:i+1,0], obs_plot[i-1:i+1, 1], color=colors[i-1], linewidth=2)
 
             # Plot initial and goal points
             ax1.scatter(obs_plot[0, 0], obs_plot[0, 1], color='red', s=100, label='Initial Point')
             ax1.scatter(obs_plot[0, 7], obs_plot[0, 8], color='blue', s=100, label='Goal Point')
+            # if self.discrete_action[0] == 1:
+            #     loc_discx = self.buf_obs[0,0]
+            #     loc_discy = self.buf_obs[0,1]
+            #     ax1.scatter(loc_discx, loc_discy, color = "red", marker = "X", label="Deploy Position")
 
             # Add colorbar for velocity magnitude
             sm = plt.cm.ScalarMappable(cmap='viridis', norm=norm)
