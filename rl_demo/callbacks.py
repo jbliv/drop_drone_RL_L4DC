@@ -21,3 +21,4 @@ class WandBVideoCallback(BaseCallback):
         #     self.counter = 0    
         # self.counter += 1
         return True
+
