@@ -245,19 +245,22 @@ class RK4Env(VecEnv):
             ax1.set_title('Trajectory with Velocity Magnitude Gradient')
 
             # Define arrow locations and properties
-            wind_speed = 5.0  
-            wind_direction = np.array([1, 0])  
-            arrow_locations = [(200, 800), (500, 600), (100, 400), (300, 200)]  
+            #wind_speed = 5.0  
+            #wind_direction = np.array([1, 0])  
+            #arrow_locations = [(200, 800), (500, 600), (100, 400), (300, 200)]  
 
-            for arrow_x, arrow_y in arrow_locations:
-                ax1.arrow(
-                    arrow_x, arrow_y,
-                    wind_direction[0] * wind_speed * 0.1,
-                    wind_direction[1] * wind_speed * 0.1,
-                    head_width=5, head_length=40, fc="black", ec="black"
-                )
+            #for arrow_x, arrow_y in arrow_locations:
+               # ax1.arrow(
+                   # arrow_x, arrow_y,
+                   # wind_direction[0] * wind_speed * 0.1,
+                   # wind_direction[1] * wind_speed * 0.1,
+                   # head_width=5, head_length=40, fc="black", ec="black"
+              #  )
 
             # Time axis for thrust plot
+#             time = np.linspace(0, len(obs_plot[:, 1]) * self.sim_dt, len(obs_plot[:, 1]))
+
+
             time = np.linspace(0, len(obs_plot[:, 1]) * self.sim_dt, len(obs_plot[:, 1]))
 
             # Subplot 2: Thrust vs Y-location
@@ -270,8 +273,8 @@ class RK4Env(VecEnv):
             ax2.set_title('Thrust vs Time')
 
             plt.tight_layout()
-            return fig
-
+            print("Plot made")
+        return fig
 
 
     def _get_indices(self, indices: VecEnvIndices) -> Iterable[int]:

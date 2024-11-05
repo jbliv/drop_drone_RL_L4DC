@@ -27,3 +27,4 @@ def double_integrator_rewards(x: np.ndarray, u: np.ndarray) -> np.ndarray:
     
     reward = 20 * goal_closer + 10 * goal_tracking + 100 * goal_reached + 0.0001 * effort_penalty + 0.0001 * action_rate
     return reward
+
