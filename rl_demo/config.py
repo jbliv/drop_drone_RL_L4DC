@@ -17,7 +17,7 @@ config = {
     },
     "drone_ic_range": {
         "x": (-2000, 2000),
-        "x_range": (-500, 500),
+        "x_range": (-50, 50),
         "y": (900, 1000),
         "vx": (-45, 45),
         "vy": (0, 0),
@@ -35,7 +35,7 @@ config = {
         net_arch=[32, 32, 32],
     ),
     "verbose": 1,
-    "rollout_steps": 100, # how man time steps per rollout before training
+    "rollout_steps": 1500, # how man time steps per rollout before training
     "minibatch_size": 5000,
     "plot_frequency": 0,
 }

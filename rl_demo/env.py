@@ -25,6 +25,7 @@ class RK4Env(VecEnv):
     def __init__(
             self,
             num_envs: int,
+            test: bool = False, 
             num_obs: int = 8,  # [x, y, dot x, dot y, Tx, Ty, gx, gy]
             num_actions: int = 2,  # [Tx, Ty]
             config: Dict = config,
@@ -36,6 +37,7 @@ class RK4Env(VecEnv):
         self.rew_func = rew_func
         self.plotting_tracker = 0
         self.plot_uploaded = False
+        self.test = test
 
         self.observation_space = gym.spaces.Box(
             low=-np.inf,
@@ -273,6 +275,8 @@ class RK4Env(VecEnv):
             ax2.set_title('Thrust vs Time')
 
             plt.tight_layout()
+            if self.test:
+                plt.show()
             print("Plot made")
         return fig
 
