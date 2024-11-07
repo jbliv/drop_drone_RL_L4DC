@@ -12,4 +12,5 @@ class WandBVideoCallback(BaseCallback):
         if self.training_env.plot is not None and not self.training_env.plot_uploaded:
             wandb.log({"plot": wandb.Image(self.training_env.plot)})
             self.training_env.uploaded(True)
+            print("plot callback")
         return True
