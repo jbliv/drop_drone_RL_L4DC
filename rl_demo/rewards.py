@@ -1,12 +1,8 @@
 import numpy as np
 import pdb
 from config import config
+
 def double_integrator_rewards(ID, x: np.ndarray, u: np.ndarray) -> np.ndarray:
-
-target_range = config["target_distance"]
-
-
-def double_integrator_rewards(x: np.ndarray, u: np.ndarray) -> np.ndarray:
 
     """Double Integrator Reward Function
     2-Dimensions
@@ -23,6 +19,7 @@ def double_integrator_rewards(x: np.ndarray, u: np.ndarray) -> np.ndarray:
     """
 
     dims = config["dimensions"]
+    target_range = config["target_distance"]
 
     # task rewards
     pose_error = np.linalg.norm(x[:, dims * 3:dims * 4] - x[:, 0:dims], axis=1)

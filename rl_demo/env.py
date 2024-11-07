@@ -97,17 +97,17 @@ class RK4Env(VecEnv):
     def step_wait(self) -> VecEnvStepReturn:
 
         obs_prev = np.copy(self.buf_obs)
-        self.continuous_action = self.actions[:,0:2]
-        discrete_action = np.where(self.actions[:, 2] > 0.5, 1, 0)
+        self.continuous_action = self.actions[:,0:self.dims]
+        discrete_action = np.where(self.actions[:, self.dims] > 0.5, 1, 0)
         self.flip_discrete = discrete_action != self.discrete_action
         self.discrete_action = discrete_action
         self.buf_obs[:,-1] = self.discrete_action
         self.buf_obs[:,-1] = np.where(obs_prev[:,-1] == 1, 1, self.buf_obs[:,-1])
         
-        self.buf_obs[:, 3] = np.where((self.flip_discrete) & (self.buf_obs[:,3] < self.cfg["target_speed"]), self.cfg["target_speed"], self.buf_obs[:,3])
+        self.buf_obs[:, self.dims * 2 - 1] = np.where((self.flip_discrete) & (self.buf_obs[:,self.dims * 2 - 1] < self.cfg["target_speed"]), self.cfg["target_speed"], self.buf_obs[:,self.dims * 2 - 1])
         #self.buf_obs[:, 2] = np.where((self.flip_discrete) & (np.abs(self.buf_obs[:,2]) > 75), 20, self.buf_obs[:,2])
 
-        self.continuous_action[:,1] = np.where(self.buf_obs[:,-1], 9.81*self.cfg["drone_mass"],self.continuous_action[:,1])
+        self.continuous_action[:,self.dims - 1] = np.where(self.buf_obs[:,-1], 9.81*self.cfg["drone_mass"],self.continuous_action[:,self.dims - 1])
     
         for _ in range(self.decimation):
             self.buf_obs[:, 0:self.dims * 2] = rk4(
@@ -182,6 +182,9 @@ class RK4Env(VecEnv):
     
     def uploaded(self, val: bool):
         self.plot_uploaded = val
+        if self.plot_uploaded:
+            plt.close()
+
 
     def reset_idx(self, indices: VecEnvIndices = None) -> VecEnvObs:
         
@@ -299,14 +302,14 @@ class RK4Env(VecEnv):
             cbar = fig.colorbar(sm, ax=ax1, label='Velocity Magnitude')
 
             ax1.set_xlabel('X Position')
-            ax1.set_ylabel('Y Position')
+            ax1.set_ylabel('Z Position')
             ax1.legend()
             ax1.set_title('Trajectory with Velocity Magnitude Gradient')
 
             time = np.linspace(0, len(obs_plot[:, 1]) * self.sim_dt, len(obs_plot[:, 1]))
             # Subplot 2: Thrust vs Y-location
             ax2.plot(time, obs_plot[:, 4], label='X-Thrust', color='orange')
-            ax2.plot(time, obs_plot[:, 5], label='Y-Thrust', color='purple')
+            ax2.plot(time, obs_plot[:, 5], label='Z-Thrust', color='purple')
 
             ax2.set_xlabel('Time')
             ax2.set_ylabel('Thrust Value')
@@ -315,8 +318,8 @@ class RK4Env(VecEnv):
     
             ax3.plot(time, obs_plot[:,3])
             ax3.set_xlabel('Time')
-            ax3.set_ylabel("Y-Velocity")
-            ax3.set_title("Y-Velocity vs Time")
+            ax3.set_ylabel("Z-Velocity")
+            ax3.set_title("Z-Velocity vs Time")
             plt.tight_layout()
             if self.test:
                 plt.show()
@@ -358,13 +361,18 @@ class RK4Env(VecEnv):
 
             # Subplot 2: Thrust vs Y-location
             ax2.plot(time, obs_plot[:, self.dims * 2], label='X-Thrust', color='orange')
-            ax2.plot(time, obs_plot[:, self.dims * 2 + 1], label='Y-Thrust', color='purple')
-            ax2.plot(time, obs_plot[:, self.dims * 2 + 2], label='Z-Thrust', color='green')
+            ax2.plot(time, obs_plot[:, self.dims * 2 + 1], label='Y-Thrust', color='gree')
+            ax2.plot(time, obs_plot[:, self.dims * 2 + 2], label='Z-Thrust', color='purple')
 
             ax2.set_xlabel('Time')
             ax2.set_ylabel('Thrust Value')
             ax2.legend()
             ax2.set_title('Thrust vs Time')
+
+            ax3.plot(time, obs_plot[:,self.dims * 2 - 1])
+            ax3.set_xlabel('Time')
+            ax3.set_ylabel("Z-Velocity")
+            ax3.set_title("Z-Velocity vs Time")
 
             plt.tight_layout()
             if self.test:
