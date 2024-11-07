@@ -3,6 +3,7 @@ from typing import Any, Callable, Dict, Iterable, List,  Optional, Type
 import gymnasium as gym
 import matplotlib
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import math
 from stable_baselines3.common.vec_env.base_vec_env import (
@@ -26,13 +27,14 @@ class RK4Env(VecEnv):
             self,
             num_envs: int,
             test: bool = False, 
-            num_obs: int = 8,  # [x, y, dot x, dot y, Tx, Ty, gx, gy]
-            num_actions: int = 2,  # [Tx, Ty]
+            num_obs: int = config["dimensions"] * 4,  # [x, y, (z), dot x, dot y, (dot z), Tx, Ty, (Tz), gx, gy, (gz)]
+            num_actions: int = config["dimensions"],  # [Tx, Ty, (Tz)]
             config: Dict = config,
             dynamics_func: Callable = double_integrator_dynamics,
             rew_func: Callable = double_integrator_rewards,
     ) -> None:
         self.cfg = config
+        self.dims = self.cfg["dimensions"]
         self.dynamics = dynamics_func
         self.rew_func = rew_func
         self.plotting_tracker = 0
@@ -86,29 +88,47 @@ class RK4Env(VecEnv):
 
     def step_wait(self) -> VecEnvStepReturn:
         for _ in range(self.decimation):
-            self.buf_obs[:, 0:4] = rk4(
+            self.buf_obs[:, 0:self.dims * 2] = rk4(
                 self.dynamics,
-                self.buf_obs[:, 0:4],
+                self.buf_obs[:, 0:self.dims * 2],
                 self.sim_dt,
                 u=self.actions
             )
         self.buf_rews = self.rew_func(self.buf_obs, self.actions)
-        self.buf_obs[:, 4:6] = self.actions
+        self.buf_obs[:, self.dims * 2:self.dims * 3] = self.actions
         self.obs_hist[self.counter] = self.buf_obs[0]
-        terminated = \
-            (self.buf_obs[:, 0] < self.cfg["env_range"]["x"][0]) | \
-            (self.buf_obs[:, 0] > self.cfg["env_range"]["x"][1]) | \
-            (self.buf_obs[:, 1] < self.cfg["env_range"]["y"][0]) | \
-            (self.buf_obs[:, 1] > self.cfg["env_range"]["y"][1])
-        truncated = (
-            (np.linalg.norm(
-                self.buf_obs[:, 0:2], axis=1
-            ) < self.target_distance) # &
-            # (np.linalg.norm(
-            #     self.buf_obs[:, 2:4], axis=1
-            # ) < self.target_speed)
-            ) | \
-            (self.t > self.max_time)
+        if self.dims == 2:
+            terminated = \
+                (self.buf_obs[:, 0] < self.cfg["env_range"]["x"][0]) | \
+                (self.buf_obs[:, 0] > self.cfg["env_range"]["x"][1]) | \
+                (self.buf_obs[:, 1] < self.cfg["env_range"]["z"][0]) | \
+                (self.buf_obs[:, 1] > self.cfg["env_range"]["z"][1])
+            truncated = (
+                (np.linalg.norm(
+                    self.buf_obs[:, 0:2], axis=1
+                ) < self.target_distance) # &
+                # (np.linalg.norm(
+                #     self.buf_obs[:, 2:4], axis=1
+                # ) < self.target_speed)
+                ) | \
+                (self.t > self.max_time)
+        elif self.dims == 3:
+            terminated = \
+                (self.buf_obs[:, 0] < self.cfg["env_range"]["x"][0]) | \
+                (self.buf_obs[:, 0] > self.cfg["env_range"]["x"][1]) | \
+                (self.buf_obs[:, 1] < self.cfg["env_range"]["y"][0]) | \
+                (self.buf_obs[:, 1] > self.cfg["env_range"]["y"][1]) | \
+                (self.buf_obs[:, 2] < self.cfg["env_range"]["z"][0]) | \
+                (self.buf_obs[:, 2] > self.cfg["env_range"]["z"][1])
+            truncated = (
+                (np.linalg.norm(
+                    self.buf_obs[:, 0:self.dims], axis=1
+                ) < self.target_distance) # &
+                # (np.linalg.norm(
+                #     self.buf_obs[:, self.dims:self.dims * 2], axis=1
+                # ) < self.target_speed)
+                ) | \
+                (self.t > self.max_time)
         self.buf_dones = terminated | truncated
         for idx in range(self.num_envs):
             self.buf_infos[idx]["TimeLimit.truncated"] = \
@@ -143,30 +163,19 @@ class RK4Env(VecEnv):
 
     def reset_idx(self, indices: VecEnvIndices = None) -> VecEnvObs:
         idx = self._get_indices(indices)
-        # save trajectory for env[0]
         
         if 0 in idx and self.counter > 1:
             self.plot = self.render()
             self.plot_uploaded = False
             self.counter = 0
-        
-        # if 0 in idx and self.counter > 1:
-        #     if self.plotting_tracker >= self.cfg["plot_frequency"]:
-        #         print("Plotted")
-        #         self.plot = self.render()
-        #         self.plotting_tracker = 0
-        #     else:
-        #         print(self.plotting_tracker)
-        #         self.plotting_tracker += 1
-        #     self.counter = 0
         gx = self.rng.uniform(
             low=self.cfg["goal_ic_range"]["x"][0],
             high=self.cfg["goal_ic_range"]["x"][1],
             size=(len(idx), 1),
         )
-        gy = self.rng.uniform(
-            low=self.cfg["goal_ic_range"]["y"][0],
-            high=self.cfg["goal_ic_range"]["y"][1],
+        gz = self.rng.uniform(
+            low=self.cfg["goal_ic_range"]["z"][0],
+            high=self.cfg["goal_ic_range"]["z"][1],
             size=(len(idx), 1),
         )
         vx0 = self.rng.uniform(
@@ -174,35 +183,54 @@ class RK4Env(VecEnv):
             high=self.cfg["drone_ic_range"]["vx"][1],
             size=(len(idx), 1),
         )
-        vy0 = self.rng.uniform(
-            low=self.cfg["drone_ic_range"]["vy"][0],
-            high=self.cfg["drone_ic_range"]["vy"][1],
+        vz0 = self.rng.uniform(
+            low=self.cfg["drone_ic_range"]["vz"][0],
+            high=self.cfg["drone_ic_range"]["vz"][1],
             size=(len(idx), 1),
         )
-        y0 = self.rng.uniform(
-            low=self.cfg["drone_ic_range"]["y"][0],
-            high=self.cfg["drone_ic_range"]["y"][1],
+        z0 = self.rng.uniform(
+            low=self.cfg["drone_ic_range"]["z"][0],
+            high=self.cfg["drone_ic_range"]["z"][1],
             size=(len(idx), 1),
         )
         x0 = []
         for condition in range(len(idx)):
-            # print("here")
-            t1 = (vy0[condition][0] + math.sqrt(vy0[condition][0]**2 - 2 * -9.81 * (y0[condition][0] - gy[condition][0]))) / -9.81
-            # print(t1)
-            t2 = (vy0[condition][0] - math.sqrt(vy0[condition][0]**2 - 2 * -9.81 * (y0[condition][0] - gy[condition][0]))) / -9.81
-            # print(t1)
+            t1 = (vz0[condition][0] + math.sqrt(vz0[condition][0]**2 - 2 * -9.81 * (z0[condition][0] - gz[condition][0]))) / -9.81
+            t2 = (vz0[condition][0] - math.sqrt(vz0[condition][0]**2 - 2 * -9.81 * (z0[condition][0] - gz[condition][0]))) / -9.81
             t = max(t1, t2)
-            # print(t)
             x_initial = gx[condition][0] - vx0[condition][0] * t
-            # print("VeloX: " vx0[condition][0] ++ vx_initial)
             current_x = self.rng.uniform(
-            low=x_initial + self.cfg["drone_ic_range"]["x_range"][0],
-            high=x_initial + self.cfg["drone_ic_range"]["x_range"][1])
+            low=x_initial + self.cfg["drone_ic_range"]["xy_range"][0],
+            high=x_initial + self.cfg["drone_ic_range"]["xy_range"][1])
             x0.append([current_x])
 
-        print("generated IC's")
-        T = np.zeros((len(idx), 2), dtype=np.float32)
-        obs = np.concatenate((x0, y0, vx0, vy0, T, gx, gy), axis=1)
+        if self.dims == 3:
+            vy0 = self.rng.uniform(
+                low=self.cfg["drone_ic_range"]["vy"][0],
+                high=self.cfg["drone_ic_range"]["vy"][1],
+                size=(len(idx), 1),
+            )
+            gy = self.rng.uniform(
+                low=self.cfg["goal_ic_range"]["y"][0],
+                high=self.cfg["goal_ic_range"]["y"][1],
+                size=(len(idx), 1),
+            )
+            y0 = []
+            for condition in range(len(idx)):
+                t1 = (vz0[condition][0] + math.sqrt(vz0[condition][0]**2 - 2 * -9.81 * (z0[condition][0] - gz[condition][0]))) / -9.81
+                t2 = (vz0[condition][0] - math.sqrt(vz0[condition][0]**2 - 2 * -9.81 * (z0[condition][0] - gz[condition][0]))) / -9.81
+                t = max(t1, t2)
+                y_initial = gy[condition][0] - vy0[condition][0] * t
+                current_y = self.rng.uniform(
+                low=y_initial + self.cfg["drone_ic_range"]["xy_range"][0],
+                high=y_initial + self.cfg["drone_ic_range"]["xy_range"][1])
+                y0.append([current_y])
+
+        T = np.zeros((len(idx), self.dims), dtype=np.float32)
+        if self.dims == 2:
+            obs = np.concatenate((x0, z0, vx0, vz0, T, gx, gz), axis=1)
+        elif self.dims == 3:
+            obs = np.concatenate((x0, y0, z0, vx0, vy0, vz0, T, gx, gy, gz), axis=1)
         t = np.zeros((len(idx),), dtype=np.float32)
         return obs, t
 
@@ -214,9 +242,7 @@ class RK4Env(VecEnv):
         return self.buf_obs
 
     def render(self) -> matplotlib.figure.Figure:
-        if 1 == 2:
-            pass
-        else:
+        if self.dims == 2:
             obs_plot = self.obs_hist[:self.counter]
 
             # Calculate the magnitude of the combined velocity vector
@@ -226,7 +252,7 @@ class RK4Env(VecEnv):
             norm = plt.Normalize(velocity_magnitude.min(), velocity_magnitude.max())
             colors = plt.cm.viridis(norm(velocity_magnitude))
 
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+            fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(21, 6))
 
             # Subplot 1: Trajectory with velocity magnitude gradient
             for i in range(1, len(obs_plot)):
@@ -246,28 +272,60 @@ class RK4Env(VecEnv):
             ax1.legend()
             ax1.set_title('Trajectory with Velocity Magnitude Gradient')
 
-            # Define arrow locations and properties
-            #wind_speed = 5.0  
-            #wind_direction = np.array([1, 0])  
-            #arrow_locations = [(200, 800), (500, 600), (100, 400), (300, 200)]  
-
-            #for arrow_x, arrow_y in arrow_locations:
-               # ax1.arrow(
-                   # arrow_x, arrow_y,
-                   # wind_direction[0] * wind_speed * 0.1,
-                   # wind_direction[1] * wind_speed * 0.1,
-                   # head_width=5, head_length=40, fc="black", ec="black"
-              #  )
-
-            # Time axis for thrust plot
-#             time = np.linspace(0, len(obs_plot[:, 1]) * self.sim_dt, len(obs_plot[:, 1]))
-
-
             time = np.linspace(0, len(obs_plot[:, 1]) * self.sim_dt, len(obs_plot[:, 1]))
 
             # Subplot 2: Thrust vs Y-location
             ax2.plot(time, obs_plot[:, 4], label='X-Thrust', color='orange')
             ax2.plot(time, obs_plot[:, 5], label='Y-Thrust', color='purple')
+
+            ax2.set_xlabel('Time')
+            ax2.set_ylabel('Thrust Value')
+            ax2.legend()
+            ax2.set_title('Thrust vs Time')
+
+            plt.tight_layout()
+            if self.test:
+                plt.show()
+            print("Plot made")
+        elif self.dims == 3:
+            obs_plot = self.obs_hist[:self.counter]
+
+            # Calculate the magnitude of the combined velocity vector
+            velocity_magnitude = np.sqrt(obs_plot[:, self.dims]**2 + obs_plot[:, self.dims + 1]**2, obs_plot[:, self.dims + 2]**2)
+
+            # Create a color map based on velocity magnitude
+            norm = plt.Normalize(velocity_magnitude.min(), velocity_magnitude.max())
+            colors = plt.cm.viridis(norm(velocity_magnitude))
+
+            fig = plt.figure(figsize=(14, 6))
+            ax1 = fig.add_subplot(121, projection="3d")
+            ax2 = fig.add_subplot(122)
+
+            # Subplot 1: Trajectory with velocity magnitude gradient
+            for i in range(1, len(obs_plot)):
+                ax1.plot(obs_plot[i-1:i+1, 0], obs_plot[i-1:i+1, 1], obs_plot[i-1:i+1, 2], color=colors[i-1], linewidth=3)
+
+            # Plot initial and goal points
+            ax1.scatter(obs_plot[0, 0], obs_plot[0, 1], obs_plot[0, 2], color='red', s=100, label='Initial Point')
+            ax1.scatter(obs_plot[0, self.dims * 3], obs_plot[0, self.dims * 3 + 1], obs_plot[0, self.dims * 3 + 2], color='blue', s=100, label='Goal Point')
+
+            # Add colorbar for velocity magnitude
+            sm = plt.cm.ScalarMappable(cmap='viridis', norm=norm)
+            sm.set_array([])
+            cbar = fig.colorbar(sm, ax=ax1, label='Velocity Magnitude')
+
+            ax1.set_xlabel('X Position')
+            ax1.set_ylabel('Y Position')
+            ax1.set_zlabel('Z Position')
+            ax1.legend()
+            ax1.set_title('Trajectory with Velocity Magnitude Gradient')
+
+            time = np.linspace(0, len(obs_plot[:, 1]) * self.sim_dt, len(obs_plot[:, 1]))
+
+            # Subplot 2: Thrust vs Y-location
+            ax2.plot(time, obs_plot[:, self.dims * 2], label='X-Thrust', color='orange')
+            ax2.plot(time, obs_plot[:, self.dims * 2 + 1], label='Y-Thrust', color='purple')
+            ax2.plot(time, obs_plot[:, self.dims * 2 + 2], label='Z-Thrust', color='green')
 
             ax2.set_xlabel('Time')
             ax2.set_ylabel('Thrust Value')
@@ -332,7 +390,7 @@ if __name__ == "__main__":
     import time
     n = 10_000
     T = 10
-    env = RK4Env(n, 8, 2, config)
+    env = RK4Env(n, config["dimensions"] * 2, config["dimensions"], config)
     u = np.array([[0]*n, [0.]*n], dtype=np.float32).T
     now = time.time()
     for _ in range(T):
