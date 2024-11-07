@@ -6,9 +6,9 @@ config = {
     "device": "cuda",
     "seed": 0,
     "sim_dt": 0.01,
-    "policy_dt": 0.01,
+    "policy_dt": 0.1,
     "max_effort": 100,
-    "dimensions": 2, 
+    "dimensions": 3, 
     "env_range": {
         "x": (-10000, 10000),
         "y": (-10000, 10000),
@@ -32,7 +32,7 @@ config = {
     "drone_mass": 2.3,
     "target_distance": 5,
     "target_speed": 0.0,
-    "max_time": 50,
+    "max_time": 100,
 
     "max_steps": 1_000_000_000,
     "policy_cls": "MlpPolicy",

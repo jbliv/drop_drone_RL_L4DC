@@ -361,7 +361,7 @@ class RK4Env(VecEnv):
 
             # Subplot 2: Thrust vs Y-location
             ax2.plot(time, obs_plot[:, self.dims * 2], label='X-Thrust', color='orange')
-            ax2.plot(time, obs_plot[:, self.dims * 2 + 1], label='Y-Thrust', color='gree')
+            ax2.plot(time, obs_plot[:, self.dims * 2 + 1], label='Y-Thrust', color='green')
             ax2.plot(time, obs_plot[:, self.dims * 2 + 2], label='Z-Thrust', color='purple')
 
             ax2.set_xlabel('Time')
