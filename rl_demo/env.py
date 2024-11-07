@@ -334,9 +334,10 @@ class RK4Env(VecEnv):
             norm = plt.Normalize(velocity_magnitude.min(), velocity_magnitude.max())
             colors = plt.cm.viridis(norm(velocity_magnitude))
 
-            fig = plt.figure(figsize=(14, 6))
-            ax1 = fig.add_subplot(121, projection="3d")
-            ax2 = fig.add_subplot(122)
+            fig = plt.figure(figsize=(21, 6))
+            ax1 = fig.add_subplot(131, projection="3d")
+            ax2 = fig.add_subplot(132)
+            ax3 = fig.add_subplot(133)
 
             # Subplot 1: Trajectory with velocity magnitude gradient
             for i in range(1, len(obs_plot)):
