@@ -31,7 +31,7 @@ config = {
 
     "drone_mass": 2.3,
     "target_distance": 5,
-    "target_speed": 0.0,
+    "target_speed": -5,
     "max_time": 100,
 
     "max_steps": 1_000_000_000,
