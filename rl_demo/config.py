@@ -1,6 +1,7 @@
 import torch
 
 config = {
+
     "num_envs": 1_000,
     "device": "cuda",
     "seed": 0,

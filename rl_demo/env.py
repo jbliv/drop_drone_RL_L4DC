@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import math
+import pdb
 from stable_baselines3.common.vec_env.base_vec_env import (
     VecEnv, VecEnvStepReturn, VecEnvObs, VecEnvIndices
 )
-
 from config import config
 from dynamics import double_integrator_dynamics
 from rewards import double_integrator_rewards
@@ -27,8 +27,9 @@ class RK4Env(VecEnv):
             self,
             num_envs: int,
             test: bool = False, 
-            num_obs: int = config["dimensions"] * 4,  # [x, y, (z), dot x, dot y, (dot z), Tx, Ty, (Tz), gx, gy, (gz)]
-            num_actions: int = config["dimensions"],  # [Tx, Ty, (Tz)]
+            num_obs: int = config["dimensions"] * 4 + 1,  # [x, y, (z), dot x, dot y, (dot z), Tx, Ty, (Tz), gx, gy, (gz), deployed]
+            num_actions_continuous: int = config["dimensions"],  # [Tx, Ty, (Tz)]
+            num_actions_disc: int = 1, #[0,1] 1 for slow down to 5 m/s, 0 for continue normal tracking
             config: Dict = config,
             dynamics_func: Callable = double_integrator_dynamics,
             rew_func: Callable = double_integrator_rewards,
@@ -40,7 +41,7 @@ class RK4Env(VecEnv):
         self.plotting_tracker = 0
         self.plot_uploaded = False
         self.test = test
-
+        
         self.observation_space = gym.spaces.Box(
             low=-np.inf,
             high=np.inf,
@@ -48,19 +49,25 @@ class RK4Env(VecEnv):
             dtype=np.float32,
             seed=self.cfg["seed"],
         )
-        self.action_space = gym.spaces.Box(
-            low=-self.cfg["max_effort"],
-            high=self.cfg["max_effort"],
-            shape=(num_actions,),
-            dtype=np.float32,
-            seed=self.cfg["seed"],
-        )
 
+        self.action_space = gym.spaces.Tuple((
+            gym.spaces.Box(
+                low=-self.cfg["max_effort"], high=self.cfg["max_effort"], shape=(num_actions_continuous,), dtype=np.float32),
+
+            gym.spaces.Discrete(
+                num_actions_disc),
+        ))
+
+        self.action_space = gym.spaces.flatten_space(self.action_space)
         self.reset_infos: List[Dict[str, Any]] = [{} for _ in range(num_envs)]
         self._seeds: List[Optional[int]] = [None for _ in range(num_envs)]
         self._options: List[Dict[str, Any]] = [{} for _ in range(num_envs)]
 
         self.num_envs = num_envs
+
+        self.flip_discrete = np.zeros((self.num_envs),dtype=bool)
+        self.discrete_action = np.zeros((self.num_envs),dtype=np.float32)
+
         self.buf_obs = np.zeros((self.num_envs, num_obs))
         self.buf_dones = np.zeros((self.num_envs,), dtype=bool)
         self.buf_rews = np.zeros((self.num_envs,), dtype=np.float32)
@@ -82,20 +89,35 @@ class RK4Env(VecEnv):
         )
         self.plot = None  # save plots for env[0]
         self.counter = 0
-
-    def step_async(self, actions: np.ndarray) -> None:
+        
+    def step_async(self, actions: np.ndarray = None) -> None:
         self.actions = actions
+    
 
     def step_wait(self) -> VecEnvStepReturn:
+
+        obs_prev = np.copy(self.buf_obs)
+        self.continuous_action = self.actions[:,0:2]
+        discrete_action = np.where(self.actions[:, 2] > 0.5, 1, 0)
+        self.flip_discrete = discrete_action != self.discrete_action
+        self.discrete_action = discrete_action
+        self.buf_obs[:,-1] = self.discrete_action
+        self.buf_obs[:,-1] = np.where(obs_prev[:,-1] == 1, 1, self.buf_obs[:,-1])
+        
+        self.buf_obs[:, 3] = np.where((self.flip_discrete) & (self.buf_obs[:,3] < self.cfg["target_speed"]), self.cfg["target_speed"], self.buf_obs[:,3])
+        #self.buf_obs[:, 2] = np.where((self.flip_discrete) & (np.abs(self.buf_obs[:,2]) > 75), 20, self.buf_obs[:,2])
+
+        self.continuous_action[:,1] = np.where(self.buf_obs[:,-1], 9.81*self.cfg["drone_mass"],self.continuous_action[:,1])
+    
         for _ in range(self.decimation):
             self.buf_obs[:, 0:self.dims * 2] = rk4(
                 self.dynamics,
                 self.buf_obs[:, 0:self.dims * 2],
                 self.sim_dt,
-                u=self.actions
+                u=self.continuous_action
             )
-        self.buf_rews = self.rew_func(self.buf_obs, self.actions)
-        self.buf_obs[:, self.dims * 2:self.dims * 3] = self.actions
+        self.buf_rews = self.rew_func(self.initial_distance, self.buf_obs, self.continuous_action)
+        self.buf_obs[:, self.dims * 2:self.dims * 3] = self.continuous_action
         self.obs_hist[self.counter] = self.buf_obs[0]
         if self.dims == 2:
             terminated = \
@@ -106,10 +128,10 @@ class RK4Env(VecEnv):
             truncated = (
                 (np.linalg.norm(
                     self.buf_obs[:, 0:2], axis=1
-                ) < self.target_distance) # &
-                # (np.linalg.norm(
-                #     self.buf_obs[:, 2:4], axis=1
-                # ) < self.target_speed)
+                ) < self.target_distance) &
+                (np.linalg.norm(
+                    self.buf_obs[:, 2:4], axis=1
+                ) < self.target_speed)
                 ) | \
                 (self.t > self.max_time)
         elif self.dims == 3:
@@ -123,10 +145,10 @@ class RK4Env(VecEnv):
             truncated = (
                 (np.linalg.norm(
                     self.buf_obs[:, 0:self.dims], axis=1
-                ) < self.target_distance) # &
-                # (np.linalg.norm(
-                #     self.buf_obs[:, self.dims:self.dims * 2], axis=1
-                # ) < self.target_speed)
+                ) < self.target_distance) &
+                (np.linalg.norm(
+                    self.buf_obs[:, self.dims:self.dims * 2], axis=1
+                ) < self.target_speed)
                 ) | \
                 (self.t > self.max_time)
         self.buf_dones = terminated | truncated
@@ -162,12 +184,14 @@ class RK4Env(VecEnv):
         self.plot_uploaded = val
 
     def reset_idx(self, indices: VecEnvIndices = None) -> VecEnvObs:
+        
         idx = self._get_indices(indices)
         
         if 0 in idx and self.counter > 1:
             self.plot = self.render()
             self.plot_uploaded = False
             self.counter = 0
+            
         gx = self.rng.uniform(
             low=self.cfg["goal_ic_range"]["x"][0],
             high=self.cfg["goal_ic_range"]["x"][1],
@@ -227,16 +251,20 @@ class RK4Env(VecEnv):
                 y0.append([current_y])
 
         T = np.zeros((len(idx), self.dims), dtype=np.float32)
+        D = np.zeros((len(idx),1), dtype = int)
         if self.dims == 2:
-            obs = np.concatenate((x0, z0, vx0, vz0, T, gx, gz), axis=1)
+            obs = np.concatenate((x0, z0, vx0, vz0, T, gx, gz, D), axis=1)
         elif self.dims == 3:
-            obs = np.concatenate((x0, y0, z0, vx0, vy0, vz0, T, gx, gy, gz), axis=1)
+            obs = np.concatenate((x0, y0, z0, vx0, vy0, vz0, T, gx, gy, gz, D), axis=1)
         t = np.zeros((len(idx),), dtype=np.float32)
+
         return obs, t
 
     def reset(self, seed=None, options=None) -> VecEnvObs:
+        
         idx = self._get_indices(None)
         self.buf_obs, self.t = self.reset_idx(idx)
+        self.initial_distance = np.linalg.norm(self.buf_obs[:,7:9] - self.buf_obs[:,0:2],axis=1)
         for idx in range(self.num_envs):
             self.reset_infos[idx] = {}
         return self.buf_obs
@@ -256,12 +284,15 @@ class RK4Env(VecEnv):
 
             # Subplot 1: Trajectory with velocity magnitude gradient
             for i in range(1, len(obs_plot)):
-                ax1.plot(obs_plot[i-1:i+1, 0], obs_plot[i-1:i+1, 1], color=colors[i-1], linewidth=2)
+                ax1.plot(obs_plot[i-1:i+1,0], obs_plot[i-1:i+1, 1], color=colors[i-1], linewidth=2)
 
             # Plot initial and goal points
             ax1.scatter(obs_plot[0, 0], obs_plot[0, 1], color='red', s=100, label='Initial Point')
             ax1.scatter(obs_plot[0, 6], obs_plot[0, 7], color='blue', s=100, label='Goal Point')
-
+            # if self.discrete_action[0] == 1:
+            #     loc_discx = self.buf_obs[0,0]
+            #     loc_discy = self.buf_obs[0,1]
+            #     ax1.scatter(loc_discx, loc_discy, color = "red", marker = "X", label="Deploy Position")
             # Add colorbar for velocity magnitude
             sm = plt.cm.ScalarMappable(cmap='viridis', norm=norm)
             sm.set_array([])
@@ -273,7 +304,6 @@ class RK4Env(VecEnv):
             ax1.set_title('Trajectory with Velocity Magnitude Gradient')
 
             time = np.linspace(0, len(obs_plot[:, 1]) * self.sim_dt, len(obs_plot[:, 1]))
-
             # Subplot 2: Thrust vs Y-location
             ax2.plot(time, obs_plot[:, 4], label='X-Thrust', color='orange')
             ax2.plot(time, obs_plot[:, 5], label='Y-Thrust', color='purple')
@@ -282,7 +312,11 @@ class RK4Env(VecEnv):
             ax2.set_ylabel('Thrust Value')
             ax2.legend()
             ax2.set_title('Thrust vs Time')
-
+    
+            ax3.plot(time, obs_plot[:,3])
+            ax3.set_xlabel('Time')
+            ax3.set_ylabel("Y-Velocity")
+            ax3.set_title("Y-Velocity vs Time")
             plt.tight_layout()
             if self.test:
                 plt.show()
@@ -390,9 +424,11 @@ if __name__ == "__main__":
     import time
     n = 10_000
     T = 10
-    env = RK4Env(n, config["dimensions"] * 2, config["dimensions"], config)
+    env = RK4Env(n, config["dimensions"] * 2 + 1, config["dimensions"] + 1, config)
     u = np.array([[0]*n, [0.]*n], dtype=np.float32).T
+    d = np.array([0]*n,dtype=np.int32).T
     now = time.time()
     for _ in range(T):
-        obs, rew, done, info = env.step(u)
+        obs, rew, done, info = env.step(u,d)
     print(f"{int(n*T/(time.time() - now)):_d} steps/second")
+

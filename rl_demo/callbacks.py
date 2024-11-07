@@ -14,4 +14,3 @@ class WandBVideoCallback(BaseCallback):
             self.training_env.uploaded(True)
             print("plot callback")
         return True
-

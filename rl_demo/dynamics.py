@@ -1,6 +1,7 @@
 import numpy as np
 from config import config
 
+
 def double_integrator_dynamics(
         x: np.ndarray,
         u: np.ndarray,
@@ -70,3 +71,4 @@ def double_integrator_dynamics(
         
 
     return dynamics
+

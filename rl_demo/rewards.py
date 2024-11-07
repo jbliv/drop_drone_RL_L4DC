@@ -1,29 +1,32 @@
 import numpy as np
+import pdb
 from config import config
+def double_integrator_rewards(ID, x: np.ndarray, u: np.ndarray) -> np.ndarray:
 
 target_range = config["target_distance"]
 
 
 def double_integrator_rewards(x: np.ndarray, u: np.ndarray) -> np.ndarray:
+
     """Double Integrator Reward Function
     2-Dimensions
     State:
-    x: [x, y, dot x, dot y, Tx, Ty, gx, gy] -> [num_envs, 8]
+    x: [x, y, dot x, dot y, Tx, Ty, gx, gy, D] -> [num_envs, 9]
     Action:
-    u: [Tx, Ty] -> [num_envs, 2]
+    u: [Tx, Ty, deploy] -> [num_envs, 3]
 
     3-Dimensions
     State:
-    x: [x, y, z, dot x, dot y, dot z, Tx, Ty, Tz, gx, gy, gz] -> [num_envs, 12]
+    x: [x, y, z, dot x, dot y, dot z, Tx, Ty, Tz, gx, gy, gz, D] -> [num_envs, 13]
     Action:
-    u: [Tx, Ty] -> [num_envs, 2]
+    u: [Tx, Ty, Tz, deploy] -> [num_envs, 4]
     """
 
     dims = config["dimensions"]
 
     # task rewards
     pose_error = np.linalg.norm(x[:, dims * 3:dims * 4] - x[:, 0:dims], axis=1)
-    tracking_std = 100
+    tracking_std = ID
     goal_tracking = np.exp(-pose_error ** 2 / tracking_std)
 
     closer_std = 10
@@ -37,4 +40,5 @@ def double_integrator_rewards(x: np.ndarray, u: np.ndarray) -> np.ndarray:
     
     reward = 20 * goal_closer + 10 * goal_tracking + 100 * goal_reached + 0.0001 * effort_penalty + 0.0001 * action_rate
     return reward
+
 
