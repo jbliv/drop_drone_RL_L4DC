@@ -12,11 +12,4 @@ class WandBVideoCallback(BaseCallback):
         if self.training_env.plot is not None and not self.training_env.plot_uploaded:
             wandb.log({"plot": wandb.Image(self.training_env.plot)})
             self.training_env.uploaded(True)
-        #    self.counter = 0    
-        #self.counter += 1
-        # if self.training_env.plot is not None and self.counter > 100 :
-        #     wandb.log({"plot": wandb.Image(self.training_env.plot)})
-        #     print("plot callback")
-        #     self.counter = 0    
-        # self.counter += 1
         return True
