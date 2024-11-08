@@ -26,16 +26,20 @@ def double_integrator_rewards(ID, x: np.ndarray, u: np.ndarray) -> np.ndarray:
     tracking_std = ID
     goal_tracking = np.exp(-pose_error ** 2 / tracking_std)
 
-    closer_std = 10
+    closer_std = ID / 100
     goal_closer = np.exp(-np.sqrt(np.abs(pose_error))/closer_std)
 
+    goal_kinda = np.where(pose_error < 1000, 1, 0) * np.where(x[:, dims] < 10, 1, 0) * (1000 - pose_error) / 1000
+    goal_almost = np.where(pose_error < 100, 1, 0) * np.where(x[:, dims] < 100, 1, 0) * (100 - pose_error) / 100
     goal_reached = np.where(pose_error < target_range, 1, 0)
 
     # regularizing rewards
     effort_penalty = -np.linalg.norm(u, axis=1) ** 2
     action_rate = -np.linalg.norm(u - x[:, dims * 2:dims * 3], axis=1)
     
-    reward = 20 * goal_closer + 10 * goal_tracking + 100 * goal_reached + 0.0001 * effort_penalty + 0.0001 * action_rate
+    reward = (10 * goal_closer + 5 * goal_tracking + 
+              100 * goal_reached + 25 * goal_almost + 10 * goal_kinda + 
+              0.0001 * effort_penalty + 0.0001 * action_rate)
     return reward
 
 
