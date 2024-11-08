@@ -44,5 +44,8 @@ config = {
     "rollout_steps": 1500, # how man time steps per rollout before training
     "minibatch_size": 5000,
     "plot_frequency": 0,
+    "gif_steps/frame": 10,
+    "gif_speed": 4
+
 }
 

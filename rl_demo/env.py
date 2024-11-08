@@ -3,6 +3,7 @@ from typing import Any, Callable, Dict, Iterable, List,  Optional, Type
 import gymnasium as gym
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import math
@@ -27,6 +28,7 @@ class RK4Env(VecEnv):
             self,
             num_envs: int,
             test: bool = False, 
+            gif: bool = False,
             num_obs: int = config["dimensions"] * 4 + 1,  # [x, y, (z), dot x, dot y, (dot z), Tx, Ty, (Tz), gx, gy, (gz), deployed]
             num_actions_continuous: int = config["dimensions"],  # [Tx, Ty, (Tz)]
             num_actions_disc: int = 1, #[0,1] 1 for slow down to 5 m/s, 0 for continue normal tracking
@@ -41,6 +43,7 @@ class RK4Env(VecEnv):
         self.plotting_tracker = 0
         self.plot_uploaded = False
         self.test = test
+        self.gif = gif
         
         self.observation_space = gym.spaces.Box(
             low=-np.inf,
@@ -321,8 +324,65 @@ class RK4Env(VecEnv):
             ax3.set_ylabel("Z-Velocity")
             ax3.set_title("Z-Velocity vs Time")
             plt.tight_layout()
-            if self.test:
+            if self.test and not self.gif:
                 plt.show()
+                plt.close()
+            if self.gif:
+                # Calculate the magnitude of the combined velocity vector
+                velocity_magnitude = np.sqrt(obs_plot[:, 2]**2 + obs_plot[:, 3]**2)
+
+                # Create a color map based on velocity magnitude
+                norm = plt.Normalize(velocity_magnitude.min(), velocity_magnitude.max())
+                colors = plt.cm.viridis(norm(velocity_magnitude))
+
+                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
+                # Plot initial and goal points
+                ax1.scatter(obs_plot[0, 0], obs_plot[0, 1], color='red', s=100, label='Initial Point')
+                ax1.scatter(obs_plot[0, 6], obs_plot[0, 7], color='blue', s=100, label='Goal Point')
+                # if self.discrete_action[0] == 1:
+                #     loc_discx = self.buf_obs[0,0]
+                #     loc_discy = self.buf_obs[0,1]
+                #     ax1.scatter(loc_discx, loc_discy, color = "red", marker = "X", label="Deploy Position")
+                # Add colorbar for velocity magnitude
+                sm = plt.cm.ScalarMappable(cmap='viridis', norm=norm)
+                sm.set_array([])
+                cbar = fig.colorbar(sm, ax=ax1, label='Velocity Magnitude')
+
+                ax1.set_xlabel('X Position')
+                ax1.set_ylabel('Z Position')
+                ax1.set_xlim(min(min(obs_plot[:,0]), obs_plot[0,6]) - 100, max(max(obs_plot[:,0]), obs_plot[0,6]) + 100)
+                ax1.set_ylim(min(min(obs_plot[:,1]), obs_plot[0,7]) - 100, max(max(obs_plot[:,1]), obs_plot[0,7]) + 100)
+                ax1.legend()
+                ax1.set_title('Trajectory with Velocity Magnitude Gradient')
+
+                ax2.set_xlabel('Time')
+                ax2.set_ylabel('Thrust Value')
+                ax2.set_xlim(min(time) - 1, max(time) - 1)
+                ax2.set_ylim(min(min(obs_plot[:,4]), min(obs_plot[:,5])) - 1, max(max(obs_plot[:,4]), max(obs_plot[:,5])) + 1)
+                ax2.legend()
+                ax2.set_title('Thrust vs Time')
+                def update(frame):
+                    start_frame = int((frame - 1) * self.cfg["gif_steps/frame"])
+                    if start_frame < 1:
+                        start_frame = 1
+                    frame *= self.cfg["gif_steps/frame"]
+                    frame = int(frame)
+                    for i in range(start_frame, frame):
+                        ax1.plot(obs_plot[i-1:i+1,0], obs_plot[i-1:i+1, 1], color=colors[i-1], linewidth=2)
+
+                    time = np.linspace(0, len(obs_plot[0:frame+1, 1]) * self.cfg["policy_dt"], len(obs_plot[0:frame+1, 1]))
+                    # Subplot 2: Thrust vs Y-location
+                    ax2.plot(time, obs_plot[0:frame+1, 4], label='X-Thrust', color='orange')
+                    ax2.plot(time, obs_plot[0:frame+1, 5], label='Z-Thrust', color='purple')
+
+                    return
+                anim = FuncAnimation(fig, update, frames=np.arange(0, len(obs_plot) / self.cfg["gif_steps/frame"]),
+                                    interval=self.cfg["gif_steps/frame"]*self.cfg["policy_dt"]*1000/self.cfg["gif_speed"])
+        
+                # save a gif of the animation using the writing package from magick
+                
+                anim.save('gifs/policy.gif', dpi=80, writer='pillow')
             print("Plot made")
         elif self.dims == 3:
             obs_plot = self.obs_hist[:self.counter]
@@ -376,8 +436,66 @@ class RK4Env(VecEnv):
             ax3.set_title("Z-Velocity vs Time")
 
             plt.tight_layout()
-            if self.test:
+            if self.test and not self.gif:
                 plt.show()
+                plt.close()
+            if self.gif:
+                # Calculate the magnitude of the combined velocity vector
+                velocity_magnitude = np.sqrt(obs_plot[:, self.dims]**2 + obs_plot[:, self.dims + 1]**2, obs_plot[:, self.dims + 2]**2)
+
+                # Create a color map based on velocity magnitude
+                norm = plt.Normalize(velocity_magnitude.min(), velocity_magnitude.max())
+                colors = plt.cm.viridis(norm(velocity_magnitude))
+
+                fig = plt.figure(figsize=(14, 6))
+                ax1 = fig.add_subplot(121, projection="3d")
+                ax2 = fig.add_subplot(122)
+
+                # Plot initial and goal points
+                ax1.scatter(obs_plot[0, 0], obs_plot[0, 1], obs_plot[0, 2], color='red', s=100, label='Initial Point')
+                ax1.scatter(obs_plot[0, self.dims * 3], obs_plot[0, self.dims * 3 + 1], obs_plot[0, self.dims * 3 + 2], color='blue', s=100, label='Goal Point')
+
+                sm = plt.cm.ScalarMappable(cmap='viridis', norm=norm)
+                sm.set_array([])
+                cbar = fig.colorbar(sm, ax=ax1, label='Velocity Magnitude')
+
+                ax1.set_xlabel('X Position')
+                ax1.set_ylabel('Y Position')
+                ax1.set_zlabel('Z Position')
+                ax1.set_xlim(min(min(obs_plot[:,0]), obs_plot[0,9]) - 100, max(max(obs_plot[:,0]), obs_plot[0,9]) + 100)
+                ax1.set_ylim(min(min(obs_plot[:,1]), obs_plot[0,10]) - 100, max(max(obs_plot[:,1]), obs_plot[0,10]) + 100)
+                ax1.set_zlim(min(min(obs_plot[:,2]), obs_plot[0,11]) - 100, max(max(obs_plot[:,2]), obs_plot[0,11]) + 100)
+                ax1.legend()
+                ax1.set_title('Trajectory with Velocity Magnitude Gradient')
+
+                ax2.set_xlabel('Time')
+                ax2.set_ylabel('Thrust Value')
+                ax2.set_xlim(min(time) - 1, max(time) - 1)
+                ax2.set_ylim(min(min(obs_plot[:,6]), min(obs_plot[:,7]), min(obs_plot[:,8])) - 1, max(max(obs_plot[:,6]), max(obs_plot[:,7]), max(obs_plot[:,8])) + 1)
+                ax2.legend()
+                ax2.set_title('Thrust vs Time')
+                def update(frame):
+                    start_frame = int((frame - 1) * self.cfg["gif_steps/frame"])
+                    if start_frame < 1:
+                        start_frame = 1
+                    frame *= self.cfg["gif_steps/frame"]
+                    frame = int(frame)
+                    for i in range(start_frame, frame):
+                        ax1.plot(obs_plot[i-1:i+1, 0], obs_plot[i-1:i+1, 1], obs_plot[i-1:i+1, 2], color=colors[i-1], linewidth=3)
+
+                    time = np.linspace(0, len(obs_plot[0:frame+1, 1]) * self.cfg["policy_dt"], len(obs_plot[0:frame+1, 1]))
+                    # Subplot 2: Thrust vs Y-location
+                    ax2.plot(time, obs_plot[0:frame+1, 6], label='X-Thrust', color='orange')
+                    ax2.plot(time, obs_plot[0:frame+1, 7], label='Y-Thrust', color='green')
+                    ax2.plot(time, obs_plot[0:frame+1, 8], label='Y-Thrust', color='purple')
+
+                    return
+                anim = FuncAnimation(fig, update, frames=np.arange(0, len(obs_plot) / self.cfg["gif_steps/frame"]),
+                                    interval=self.cfg["gif_steps/frame"]*self.cfg["policy_dt"]*1000/self.cfg["gif_speed"])
+        
+                # save a gif of the animation using the writing package from magick
+                
+                anim.save('gifs/policy.gif', dpi=80, writer='pillow')
             print("Plot made")
         return fig
 
