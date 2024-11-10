@@ -29,9 +29,9 @@ try:
         callback=[
             WandbCallback(
                 verbose=config["verbose"],
-                model_save_path= f"policy/{run.id}",  # f"models/{run.id}"
-                model_save_freq=1000,  # 100
-                gradient_save_freq=1000,  # 100
+                model_save_path=None,  # f"models/{run.id}"
+                model_save_freq=0,  # 100
+                gradient_save_freq=0,  # 100
             ),
             WandBVideoCallback(),
         ],
