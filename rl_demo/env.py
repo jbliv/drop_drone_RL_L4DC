@@ -17,6 +17,7 @@ from rewards import double_integrator_rewards
 from utils import rk4
 
 
+
 class RK4Env(VecEnv):
     metadata = {
         "render_mode": ["human"],
@@ -72,6 +73,7 @@ class RK4Env(VecEnv):
         self.discrete_action = np.zeros((self.num_envs),dtype=np.float32)
 
         self.buf_obs = np.zeros((self.num_envs, num_obs))
+        self.dt = np.zeros((self.num_envs),dtype=np.float32)
         self.buf_dones = np.zeros((self.num_envs,), dtype=bool)
         self.buf_rews = np.zeros((self.num_envs,), dtype=np.float32)
         self.buf_infos: List[Dict[str, Any]] = [
@@ -92,11 +94,11 @@ class RK4Env(VecEnv):
         )
         self.plot = None  # save plots for env[0]
         self.counter = 0
-        
+
     def step_async(self, actions: np.ndarray = None) -> None:
         self.actions = actions
     
-
+    
     def step_wait(self) -> VecEnvStepReturn:
 
         obs_prev = np.copy(self.buf_obs)
@@ -106,11 +108,20 @@ class RK4Env(VecEnv):
         self.discrete_action = discrete_action
         self.buf_obs[:,-1] = self.discrete_action
         self.buf_obs[:,-1] = np.where(obs_prev[:,-1] == 1, 1, self.buf_obs[:,-1])
-        
-        self.buf_obs[:, self.dims * 2 - 1] = np.where((self.flip_discrete) & (self.buf_obs[:,self.dims * 2 - 1] < self.cfg["target_speed"]), self.cfg["target_speed"], self.buf_obs[:,self.dims * 2 - 1])
-        #self.buf_obs[:, 2] = np.where((self.flip_discrete) & (np.abs(self.buf_obs[:,2]) > 75), 20, self.buf_obs[:,2])
 
-        self.continuous_action[:,self.dims - 1] = np.where(self.buf_obs[:,-1], 9.81*self.cfg["drone_mass"],self.continuous_action[:,self.dims - 1])
+        self.dt = np.where((self.buf_obs[:,-1] == 1), self.dt + .1, self.dt)
+        self.dt = np.clip(self.dt, 0, 7)
+        #Need to add a gradual velocity reductions 
+        #Need to get details on max thrust to determine how fast the drone can slow down
+        #Range needs to be adjusted for expected time to slow down to 5 m/s
+        #self.buf_obs[:,self.dims * 2 - 1] = gradual_speed_update(self.buf_obs[:,self.dims * 2 - 1], self.sim_dt)
+        
+        self.buf_obs[:, self.dims * 2 - 1] = np.where((self.buf_obs[:,-1] == 1) & (self.buf_obs[:,self.dims * 2 - 1] < self.cfg["target_speed"]), \
+        self.buf_obs[:,self.dims * 2 - 1] + (self.dt/7)*(self.cfg["target_speed"] - self.buf_obs[:,self.dims * 2 - 1]), self.buf_obs[:,self.dims * 2 - 1])
+        
+
+        self.continuous_action[:,self.dims - 1] = np.where((self.buf_obs[:,-1] == 1) & (self.buf_obs[:,self.dims * 2 - 1] < self.cfg["target_speed"]), \
+        self.continuous_action[:,self.dims - 1] + (self.dt/7)*(9.81*self.cfg["drone_mass"] - self.continuous_action[:,self.dims - 1]), self.continuous_action[:,self.dims - 1])
     
         for _ in range(self.decimation):
             self.buf_obs[:, 0:self.dims * 2] = rk4(
@@ -192,11 +203,11 @@ class RK4Env(VecEnv):
     def reset_idx(self, indices: VecEnvIndices = None) -> VecEnvObs:
         
         idx = self._get_indices(indices)
-        
         if 0 in idx and self.counter > 1:
             self.plot = self.render()
             self.plot_uploaded = False
             self.counter = 0
+            self.dt = np.zeros(self.num_envs)
             
         gx = self.rng.uniform(
             low=self.cfg["goal_ic_range"]["x"][0],
@@ -267,7 +278,7 @@ class RK4Env(VecEnv):
         return obs, t
 
     def reset(self, seed=None, options=None) -> VecEnvObs:
-        
+        # self.dt = np.zeros(self.num_envs)
         idx = self._get_indices(None)
         self.buf_obs, self.t = self.reset_idx(idx)
         dims = self.cfg["dimensions"]

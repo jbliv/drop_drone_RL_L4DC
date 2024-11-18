@@ -7,7 +7,7 @@ config = {
     "sim_dt": 0.01,
     "policy_dt": 0.1,
     "max_effort": 220,
-    "dimensions": 3,
+    "dimensions": 2,
     "env_range": {
         "x": (-500,500),
         "y": (-500, 500),
@@ -39,7 +39,7 @@ config = {
         net_arch=[32, 32, 32],
     ),
     "verbose": 1,
-    "rollout_steps": 200, # how man time steps per rollout before training
+    "rollout_steps": 100, # how man time steps per rollout before training
     "minibatch_size": 2000,
     "plot_frequency": 0,
     "gif_steps/frame": 10,
