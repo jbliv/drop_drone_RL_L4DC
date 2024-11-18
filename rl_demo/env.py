@@ -109,19 +109,19 @@ class RK4Env(VecEnv):
         self.buf_obs[:,-1] = self.discrete_action
         self.buf_obs[:,-1] = np.where(obs_prev[:,-1] == 1, 1, self.buf_obs[:,-1])
 
-        self.dt = np.where((self.buf_obs[:,-1] == 1), self.dt + .1, self.dt)
-        self.dt = np.clip(self.dt, 0, 7)
+        self.dt = np.where((self.buf_obs[:,-1] == 1), self.dt + .05, self.dt)
+        self.dt = np.clip(self.dt, 0, 3)
         #Need to add a gradual velocity reductions 
         #Need to get details on max thrust to determine how fast the drone can slow down
         #Range needs to be adjusted for expected time to slow down to 5 m/s
         #self.buf_obs[:,self.dims * 2 - 1] = gradual_speed_update(self.buf_obs[:,self.dims * 2 - 1], self.sim_dt)
         
         self.buf_obs[:, self.dims * 2 - 1] = np.where((self.buf_obs[:,-1] == 1) & (self.buf_obs[:,self.dims * 2 - 1] < self.cfg["target_speed"]), \
-        self.buf_obs[:,self.dims * 2 - 1] + (self.dt/7)*(self.cfg["target_speed"] - self.buf_obs[:,self.dims * 2 - 1]), self.buf_obs[:,self.dims * 2 - 1])
+        self.buf_obs[:,self.dims * 2 - 1] + (self.dt/3)*(self.cfg["target_speed"] - self.buf_obs[:,self.dims * 2 - 1]), self.buf_obs[:,self.dims * 2 - 1])
         
 
-        self.continuous_action[:,self.dims - 1] = np.where((self.buf_obs[:,-1] == 1) & (self.buf_obs[:,self.dims * 2 - 1] < self.cfg["target_speed"]), \
-        self.continuous_action[:,self.dims - 1] + (self.dt/7)*(9.81*self.cfg["drone_mass"] - self.continuous_action[:,self.dims - 1]), self.continuous_action[:,self.dims - 1])
+        self.continuous_action[:,self.dims - 1] = np.where((self.buf_obs[:,-1] == 1), \
+        self.continuous_action[:,self.dims - 1] + (self.dt/3)*(9.81*self.cfg["drone_mass"] - self.continuous_action[:,self.dims - 1]), self.continuous_action[:,self.dims - 1])
     
         for _ in range(self.decimation):
             self.buf_obs[:, 0:self.dims * 2] = rk4(
