@@ -31,6 +31,7 @@ try:
                 verbose=config["verbose"],
                 model_save_path=None,  # f"models/{run.id}"
                 model_save_freq=0,  # 100
+                
                 gradient_save_freq=0,  # 100
             ),
             WandBVideoCallback(),
