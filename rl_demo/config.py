@@ -7,7 +7,7 @@ config = {
     "sim_dt": 0.01,
     "policy_dt": 0.1,
     "max_effort": 220,
-    "dimensions": 2,
+    "dimensions": 3,
     "env_range": {
         "x": (-500,500),
         "y": (-500, 500),

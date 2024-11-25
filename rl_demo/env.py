@@ -127,7 +127,10 @@ class RK4Env(VecEnv):
         self.buf_obs[:, self.dims * 2 - 1] = np.where((self.buf_obs[:,-1] == 1) & (self.buf_obs[:,self.dims * 2 - 1] < self.cfg["target_speed"]), \
         self.buf_obs[:,self.dims * 2 - 1] + (self.dt/4)*(self.cfg["target_speed"] - self.buf_obs[:,self.dims * 2 - 1]), self.buf_obs[:,self.dims * 2 - 1])
         
-        self.continuous_action[:] = np.where(self.buf_obs[:,-1] == 1, self.continuous_action[:], 0)
+        if config["dimensions"] == 2:
+            self.continuous_action[:] = np.where(self.buf_obs[:,-1] == 1, self.continuous_action[:], 0)
+        else:
+            self.continuous_action[:,:] = np.where(self.buf_obs[:,-1][:,np.newaxis] == 1, self.continuous_action[:,:], [0,0])
 
         for _ in range(self.decimation):
             self.buf_obs[:, 0:self.dims * 2] = rk4(
@@ -137,10 +140,12 @@ class RK4Env(VecEnv):
                 u=self.continuous_action
             )
         self.buf_rews = self.rew_func(self.initial_distance, self.buf_obs, self.continuous_action)
+
         if config["dimensions"] == 2:
             self.buf_obs[:, 4] = self.continuous_action
         else:
             self.buf_obs[:, self.dims * 2:4*(self.dims - 1)] = self.continuous_action
+
         self.obs_hist[self.counter] = self.buf_obs[0]
         if self.dims == 2:
             terminated = \
@@ -426,7 +431,7 @@ class RK4Env(VecEnv):
 
             # Plot initial and goal points
             ax1.scatter(obs_plot[0, 0], obs_plot[0, 1], obs_plot[0, 2], color='red', s=100, label='Initial Point')
-            ax1.scatter(obs_plot[0, self.dims * 3 - 1], obs_plot[0, self.dims * 3 ], obs_plot[0, self.dims * 3 + 1], color='blue', s=100, label='Goal Point')
+            ax1.scatter(obs_plot[0, self.dims * 3 - 1], obs_plot[0, self.dims * 3], obs_plot[0, self.dims * 3 + 1], color='blue', s=100, label='Goal Point')
 
             # Add colorbar for velocity magnitude
             sm = plt.cm.ScalarMappable(cmap='viridis', norm=norm)
@@ -492,7 +497,7 @@ class RK4Env(VecEnv):
                 ax2.set_xlabel('Time')
                 ax2.set_ylabel('Thrust Value')
                 ax2.set_xlim(min(time) - 1, max(time) - 1)
-                ax2.set_ylim(min(min(obs_plot[:,6]), min(obs_plot[:,7]), min(obs_plot[:,8])) - 1, max(max(obs_plot[:,6]), max(obs_plot[:,7]), max(obs_plot[:,8])) + 1)
+                ax2.set_ylim(min(min(obs_plot[:,6]), min(obs_plot[:,7])) - 1, max(max(obs_plot[:,6]), max(obs_plot[:,7])) + 1)
                 ax2.legend()
                 ax2.set_title('Thrust vs Time')
                 def update(frame):
@@ -508,7 +513,7 @@ class RK4Env(VecEnv):
                     # Subplot 2: Thrust vs Y-location
                     ax2.plot(time, obs_plot[0:frame+1, 6], label='X-Thrust', color='orange')
                     ax2.plot(time, obs_plot[0:frame+1, 7], label='Y-Thrust', color='green')
-                    ax2.plot(time, obs_plot[0:frame+1, 8], label='Y-Thrust', color='purple')
+                    #ax2.plot(time, obs_plot[0:frame+1, 8], label='Y-Thrust', color='purple')
 
                     return
                 anim = FuncAnimation(fig, update, frames=np.arange(0, len(obs_plot) / self.cfg["gif_steps/frame"]),
@@ -573,8 +578,13 @@ if __name__ == "__main__":
     n = 10_000
     T = 10
     env = RK4Env(n, config["dimensions"] * 4, config["dimensions"], config)
-    u = np.array([0.]*n, dtype=np.float32)
-    d = np.array([0]*n,dtype=np.int32)
+
+    if config["dimensions"] == 2:
+        u = np.array([0.]*n, dtype=np.float32).T
+    else:
+        u = np.array([[0]*n, [0.]*n], dtype=np.float32).T
+
+    d = np.array([0]*n,dtype=np.int32).T
     now = time.time()
     for _ in range(T):
         obs, rew, done, info = env.step(u,d)

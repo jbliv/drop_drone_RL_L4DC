@@ -4,14 +4,20 @@ from config import config
 def double_integrator_rewards(ID, x: np.ndarray, u: np.ndarray) -> np.ndarray:
     """Double Integrator Reward Function
     State:
-    x: [x, y, dot x, dot y, Tx, Ty,D, gx, gy] -> [num_envs, 9]
-    Action:
-    u: [Tx, Ty, deploy] -> [num_envs, 3]
+    2D
+        x: [x, y, dot x, dot y, Tx, Ty, gx, gy, deploy] -> [num_envs, 9]
+        Action:
+        u: [Tx, deploy] -> [num_envs, 2]
+
+    3D
+        x: [x, y, z, dot x, dot y, dot z, Tx, Ty, gx, gy, gy, deploy] -> [num_envs, 12]
+        Action:
+        u: [Tx, Ty, deploy] -> [num_envs, 3]
+
     """
     # task rewards
     dims = config["dimensions"]
-    #pose_error = np.linalg.norm(x[:,7:9] - x[:,0:2], axis = 1)
-    pose_error = np.linalg.norm(x[:, dims * 3:dims * 4] - x[:, 0:dims], axis=1)
+    pose_error = np.linalg.norm(x[:, dims * 3 - 1:dims * 4 - 1] - x[:, 0:dims], axis=1)
     tracking_std = ID # Initial Distance of agent from target
 
 
