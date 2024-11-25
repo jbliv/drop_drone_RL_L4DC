@@ -2,7 +2,7 @@ import torch
 
 config = {
 
-    "num_envs": 1_000,
+    "num_envs": 5_0,
     "device": "cuda",
     "seed": 0,
     "sim_dt": 0.01,
@@ -22,10 +22,10 @@ config = {
     "drone_ic_range": {
         "x": (-2000, 2000),
         "y": (-2000, 2000),
-        "xy_range": (-50, -50),
-        "z": (1000, 1000),
-        "vx": (45, 45),
-        "vy": (45, 45),
+        "xy_range": (-5.0, -5.0),
+        "z": (100, 100),
+        "vx": (4.5, 4.5),
+        "vy": (4.5, 4.5),
         "vz": (-6, -6),
     },
 
@@ -41,11 +41,11 @@ config = {
         net_arch=[32, 32, 32],
     ),
     "verbose": 1,
-    "rollout_steps": 1500, # how man time steps per rollout before training
-    "minibatch_size": 5000,
+    "rollout_steps": 200, # how man time steps per rollout before training
+    "minibatch_size": 50000,
     "plot_frequency": 0,
     "gif_steps/frame": 10,
-    "gif_speed": 4
+    "gif_speed": 1
 
 }
 

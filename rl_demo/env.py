@@ -107,7 +107,7 @@ class RK4Env(VecEnv):
         self.buf_obs[:,-1] = self.discrete_action
         self.buf_obs[:,-1] = np.where(obs_prev[:,-1] == 1, 1, self.buf_obs[:,-1])
         
-        self.buf_obs[:, self.dims * 2 - 1] = np.where((self.flip_discrete) & (self.buf_obs[:,self.dims * 2 - 1] > self.cfg["target_speed"]), self.cfg["target_speed"], self.buf_obs[:,self.dims * 2 - 1])
+        self.buf_obs[:, self.dims * 2 - 1] = np.where((self.flip_discrete) & (self.buf_obs[:,self.dims * 2 - 1] < self.cfg["target_speed"]), self.cfg["target_speed"], self.buf_obs[:,self.dims * 2 - 1])
         #self.buf_obs[:, 2] = np.where((self.flip_discrete) & (np.abs(self.buf_obs[:,2]) > 75), 20, self.buf_obs[:,2])
 
         self.continuous_action[:,self.dims - 1] = np.where(self.buf_obs[:,-1], 9.81*self.cfg["drone_mass"],self.continuous_action[:,self.dims - 1])

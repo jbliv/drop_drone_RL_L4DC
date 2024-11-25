@@ -4,8 +4,8 @@ from config import config
 import numpy as np
 
 # Load the trained model
-model_path = "policy/mpm7zixo/model.zip"  # Replace with your model's path
-model = PPO.load(model_path, RK4Env(1, config=config, test=True, gif=True))
+model_path = "policy/y9zuzlla/model.zip"  # Replace with your model's path
+model = PPO.load(model_path, RK4Env(1, config=config, test=True, gif=False))
 
 # Create the environment for testing
 
