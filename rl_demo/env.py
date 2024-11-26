@@ -30,9 +30,9 @@ class RK4Env(VecEnv):
             num_envs: int,
             test: bool = False, 
             gif: bool = False,
-            num_obs: int = config["dimensions"] * 4,  # [x, y, (z), dot x, dot y, (dot z), Tx, Ty, gx, gy, (gz), deployed]
-            num_actions_continuous: int = config["dimensions"] - 1,  # [Tx, Ty, (Tz)]
-            num_actions_disc: int = 1, #[0,1] 1 for slow down to 5 m/s, 0 for continue normal tracking
+            num_obs: int = config["dimensions"] * 4,  # [x, y, (z), dot x, dot y, (dot z), Tx, (Tz), gx, gy, (gz), deployed]
+            num_actions_continuous: int = config["dimensions"] - 1,  # [Tx, (Tz)]
+            num_actions_disc: int = 1, 
             config: Dict = config,
             dynamics_func: Callable = double_integrator_dynamics,
             rew_func: Callable = double_integrator_rewards,
@@ -98,14 +98,11 @@ class RK4Env(VecEnv):
     def step_async(self, actions: np.ndarray = None) -> None:
         self.actions = actions
     
-    #Observation space 2D: x,y,v0x,v0y,Tx,gx,gy,deployed
-    #Action space 2d: Tx, deployed
-    #Tx,Ty,d
     def step_wait(self) -> VecEnvStepReturn:
 
         obs_prev = np.copy(self.buf_obs)
 
-        if config["dimensions"] == 2:
+        if self.dims == 2:
             self.continuous_action = self.actions[:,0]
         else:
             self.continuous_action = self.actions[:,0:2]
@@ -116,20 +113,15 @@ class RK4Env(VecEnv):
         self.buf_obs[:,-1] = self.discrete_action
         self.buf_obs[:,-1] = np.where(obs_prev[:,-1] == 1, 1, self.buf_obs[:,-1])
 
-        #Sim time to stop is determined frm clip max/ dt interval
+        #Sim time to stop is determined frm clip max / dt interval (need to confirm)
         self.dt = np.where((self.buf_obs[:,-1] == 1), self.dt + .05, self.dt)
         self.dt = np.clip(self.dt, 0, 4)
-        #Need to add a gradual velocity reductions 
-        #Need to get details on max thrust to determine how fast the drone can slow down
-        #Range needs to be adjusted for expected time to slow down to 5 m/s
-        #self.buf_obs[:,self.dims * 2 - 1] = gradual_speed_update(self.buf_obs[:,self.dims * 2 - 1], self.sim_dt)
-        # 
         self.buf_obs[:, self.dims * 2 - 1] = np.where((self.buf_obs[:,-1] == 1) & (self.buf_obs[:,self.dims * 2 - 1] < self.cfg["target_speed"]), \
         self.buf_obs[:,self.dims * 2 - 1] + (self.dt/4)*(self.cfg["target_speed"] - self.buf_obs[:,self.dims * 2 - 1]), self.buf_obs[:,self.dims * 2 - 1])
         
-        if config["dimensions"] == 2:
+        if self.dims == 2:
             self.continuous_action[:] = np.where(self.buf_obs[:,-1] == 1, self.continuous_action[:], 0)
-        else:
+        elif self.dims == 3:
             self.continuous_action[:,:] = np.where(self.buf_obs[:,-1][:,np.newaxis] == 1, self.continuous_action[:,:], [0,0])
 
         for _ in range(self.decimation):
@@ -141,9 +133,9 @@ class RK4Env(VecEnv):
             )
         self.buf_rews = self.rew_func(self.initial_distance, self.buf_obs, self.continuous_action)
 
-        if config["dimensions"] == 2:
+        if self.dims == 2:
             self.buf_obs[:, 4] = self.continuous_action
-        else:
+        elif self.dims == 3:
             self.buf_obs[:, self.dims * 2:4*(self.dims - 1)] = self.continuous_action
 
         self.obs_hist[self.counter] = self.buf_obs[0]
@@ -338,7 +330,6 @@ class RK4Env(VecEnv):
             time = np.linspace(0, len(obs_plot[:, 1]) * self.cfg["policy_dt"], len(obs_plot[:, 1]))
             # Subplot 2: Thrust vs Y-location
             ax2.plot(time, obs_plot[:, 4], label='X-Thrust', color='orange')
-            #ax2.plot(time, obs_plot[:, 5], label='Z-Thrust', color='purple')
 
             ax2.set_xlabel('Time')
             ax2.set_ylabel('Thrust Value')
@@ -449,7 +440,6 @@ class RK4Env(VecEnv):
             # Subplot 2: Thrust vs Y-location
             ax2.plot(time, obs_plot[:, self.dims * 2], label='X-Thrust', color='orange')
             ax2.plot(time, obs_plot[:, self.dims * 2 + 1], label='Y-Thrust', color='green')
-            #ax2.plot(time, obs_plot[:, self.dims * 2 + 2], label='Z-Thrust', color='purple')
 
             ax2.set_xlabel('Time')
             ax2.set_ylabel('Thrust Value')
@@ -513,7 +503,6 @@ class RK4Env(VecEnv):
                     # Subplot 2: Thrust vs Y-location
                     ax2.plot(time, obs_plot[0:frame+1, 6], label='X-Thrust', color='orange')
                     ax2.plot(time, obs_plot[0:frame+1, 7], label='Y-Thrust', color='green')
-                    #ax2.plot(time, obs_plot[0:frame+1, 8], label='Y-Thrust', color='purple')
 
                     return
                 anim = FuncAnimation(fig, update, frames=np.arange(0, len(obs_plot) / self.cfg["gif_steps/frame"]),
@@ -584,8 +573,14 @@ if __name__ == "__main__":
     else:
         u = np.array([[0]*n, [0.]*n], dtype=np.float32).T
 
+    env = RK4Env(n, config["dimensions"] * 2 + 1, config["dimensions"] + 1, config)
+    u = np.array([[0]*n, [0.]*n], dtype=np.float32).T
+
     d = np.array([0]*n,dtype=np.int32).T
     now = time.time()
     for _ in range(T):
         obs, rew, done, info = env.step(u,d)
     print(f"{int(n*T/(time.time() - now)):_d} steps/second")
+
+    print(f"{int(n*T/(time.time() - now)):_d} steps/second")
+

@@ -1,8 +1,9 @@
 import torch
 
 config = {
-    "num_envs": 1000,
-    "device": "cpu",
+
+    "num_envs": 5_0,
+    "device": "cuda",
     "seed": 0,
     "sim_dt": 0.01,
     "policy_dt": 0.1,
@@ -31,7 +32,8 @@ config = {
     "drone_mass": 23,
     "target_distance": 1,
     "target_speed": -5,
-    "max_time": 100, # End of episode
+    "max_time": 100,
+
     "max_steps": 1_000_000_000,
     "policy_cls": "MlpPolicy",
     "policy_kwargs": dict(
