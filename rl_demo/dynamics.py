@@ -8,13 +8,7 @@ def wind():
 
 def double_integrator_dynamics(
         x: np.ndarray,
-        u: np.ndarray,
-        Cd_x: float = 0.8, 
-        Cd_y: float = 0.8,
-        Cd_z: float = 0.35,  
-        area_x: float = 0.5,
-        area_y: float = 0.5,   
-        area_z: float = 0.3,  
+        u: np.ndarray,  
         air_density: float = 1.225,    
         **kwargs, 
 ) -> np.ndarray:
@@ -31,15 +25,15 @@ def double_integrator_dynamics(
     v_ang_z = np.arctan2(relative_v_z, np.sqrt(relative_v_x**2 + relative_v_y**2)) 
 
     # Effective drag coefficients and areas
-    effective_Cd = (Cd_x * np.abs(np.cos(v_ang_xy)) + Cd_y * np.abs(np.sin(v_ang_xy)) + Cd_z * np.abs(np.sin(v_ang_z)))
-    effective_area = (area_x * np.abs(np.cos(v_ang_xy)) + area_y * np.abs(np.sin(v_ang_xy)) + area_z * np.abs(np.sin(v_ang_z)))
+    effective_Cd = (config["Cd_x"] * np.abs(np.cos(v_ang_xy)) + config["Cd_y"] * np.abs(np.sin(v_ang_xy)) + config["Cd_z"]* np.abs(np.sin(v_ang_z)))
+    effective_area = (config["area_x"] * np.abs(np.cos(v_ang_xy)) + config["area_y"] * np.abs(np.sin(v_ang_xy)) + config["area_z"] * np.abs(np.sin(v_ang_z)))
 
-    #drag_mag = 0.5 * air_density * effective_Cd * effective_area * (v_mag**2) #OFF
+    #drag_mag = 0.5 * config["air_density"] * effective_Cd * effective_area * (v_mag**2) #OFF
     
     # Drag magnitudes
-    drag_mag_x = 0.5 * air_density * effective_Cd * effective_area * (relative_v_x**2)
-    drag_mag_y = 0.5 * air_density * effective_Cd * effective_area* (relative_v_y**2)
-    drag_mag_z = 0.5 * air_density * effective_Cd * effective_area * (relative_v_z**2)
+    drag_mag_x = 0.5 * config["air_density"] * effective_Cd * effective_area * (relative_v_x**2)
+    drag_mag_y = 0.5 * config["air_density"] * effective_Cd * effective_area* (relative_v_y**2)
+    drag_mag_z = 0.5 * config["air_density"] * effective_Cd * effective_area * (relative_v_z**2)
 
     # Drag forces in each direction
     drag_x = -np.sign(relative_v_x) * drag_mag_x * np.abs(np.cos(v_ang_xy)) / config["drone_mass"]

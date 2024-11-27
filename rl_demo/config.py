@@ -33,6 +33,14 @@ config = {
     "target_distance": 5,
     "target_speed": -5,
     "max_time": 100,
+    
+    "Cd_x": 0.8,
+    "Cd_y": 0.8,
+    "Cd_z": 0.35,
+    "area_x": 0.5,
+    "area_y": 0.5,
+    "area_z": 0.3,
+    "air_density": 1.225,
 
     "max_steps": 1_000_000_000,
     "policy_cls": "MlpPolicy",
