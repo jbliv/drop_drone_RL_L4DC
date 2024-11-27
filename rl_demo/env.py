@@ -30,8 +30,8 @@ class RK4Env(VecEnv):
             num_envs: int,
             test: bool = False, 
             gif: bool = False,
-            num_obs: int = config["dimensions"] * 4,  # [x, y, (z), dot x, dot y, (dot z), Tx, (Tz), gx, gy, (gz), deployed]
-            num_actions_continuous: int = config["dimensions"] - 1,  # [Tx, (Tz)]
+            num_obs: int = config["dimensions"] * 4,  # [x, (y), z, dot x, (dot y), dot z, Tx, (Ty), gx, (gy), gz, deployed]
+            num_actions_continuous: int = config["dimensions"] - 1,  # [Tx, (Ty)]
             num_actions_disc: int = 1, 
             config: Dict = config,
             dynamics_func: Callable = double_integrator_dynamics,
