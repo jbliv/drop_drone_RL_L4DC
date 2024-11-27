@@ -1,46 +1,36 @@
 import torch
 
 config = {
-
-    "num_envs": 5_0,
+    "num_envs": 1_000,
     "device": "cuda",
     "seed": 0,
     "sim_dt": 0.01,
     "policy_dt": 0.1,
-    "max_effort": 100,
-    "dimensions": 3, 
+    "max_effort": 220,
+    "dimensions": 3,
     "env_range": {
-        "x": (-100000, 100000),
-        "y": (-100000, 100000),
-        "z": (0, 1500),
+        "x": (-10000, 10000),
+        "y": (0, 1500),
     },
     "goal_ic_range": {
-        "x": (0, 0),
-        "y": (0, 0),
-        "z": (0, 0),
+        "x": (300,500),
+        "y": (300, 500),
+        "z": (0,0)
     },
     "drone_ic_range": {
-        "x": (-2000, 2000),
-        "y": (-2000, 2000),
-        "xy_range": (-5.0, -5.0),
-        "z": (100, 100),
-        "vx": (4.5, 4.5),
-        "vy": (4.5, 4.5),
-        "vz": (-6, -6),
+        "x_range": (0, 100),
+        "xy_range": (-50, -50),
+        "x": (-200,0),
+        "y": (-200,0),
+        "vx": (45, 45),
+        "vy": (45, 45),
+        "vz":(0,0),
+        "z": (750,1000)
     },
-
-    "drone_mass": 2.3,
-    "target_distance": 5,
+    "drone_mass": 23,
+    "target_distance": 1,
     "target_speed": -5,
     "max_time": 100,
-    
-    "Cd_x": 0.8,
-    "Cd_y": 0.8,
-    "Cd_z": 0.35,
-    "area_x": 0.5,
-    "area_y": 0.5,
-    "area_z": 0.3,
-    "air_density": 1.225,
 
     "max_steps": 1_000_000_000,
     "policy_cls": "MlpPolicy",
@@ -49,10 +39,9 @@ config = {
         net_arch=[32, 32, 32],
     ),
     "verbose": 1,
-    "rollout_steps": 200, # how man time steps per rollout before training
-    "minibatch_size": 50000,
+    "rollout_steps": 100, # how man time steps per rollout before training
+    "minibatch_size": 2000,
     "plot_frequency": 0,
     "gif_steps/frame": 10,
-    "gif_speed": 1
-
+    "gif_speed": 4
 }
