@@ -1,49 +1,103 @@
 import numpy as np
 from config import config
 
+def wind():
+    wind_x = np.random.uniform(-5, 5)  
+    wind_y = np.random.uniform(-5, 5)  
+    return np.array([wind_x, wind_y])
+
 def double_integrator_dynamics(
         x: np.ndarray,
         u: np.ndarray,
-        # drone_mass: float = 23.0,
-        Cd: float = 0.5, 
-        area: float = 0.1,  
-        air_density: float = 1.225,  
-        wind_speed: float = 5.0,  
-        **kwargs,
+        Cd_x: float = 0.8, 
+        Cd_y: float = 0.8,
+        Cd_z: float = 0.35,  
+        area_x: float = 0.5,
+        area_y: float = 0.5,   
+        area_z: float = 0.3,  
+        air_density: float = 1.225,    
+        **kwargs, 
 ) -> np.ndarray:
-    """Double Integrator Dynamics with wind and drag"""
-    relative_v_x = x[:, 2] - wind_speed
-    drag_x = 0.5 * air_density * Cd * area * (relative_v_x ** 2)
-    drag_x = -np.sign(relative_v_x) * drag_x / config["drone_mass"]
+    """Double Integrator Dynamics with wind and advanced drag"""
 
-    # drag = np.zeros_like(x))
-    # drag[:,2] = drag_x  
+    wind_vector = wind()
 
-    # print("U size")
-    # print(u.size)
-    # print(u)
+    relative_v_x = x[:, 3] - wind_vector[0]
+    relative_v_y = x[:, 4] - wind_vector[1]
+    relative_v_z = x[:, 5]
 
-    A = np.array([
-        [0, 0, 1, 0],
-        [0, 0, 0, 1],
-        [0, 0, 0, 0],
-        [0, 0, 0, 0],
-    ], dtype=np.float32)
+    #v_mag = np.sqrt((relative_v_x)**2 + (relative_v_y)**2 + (relative_v_z)**2) #OFF
+    v_ang_xy = np.arctan2(relative_v_y, relative_v_x)  
+    v_ang_z = np.arctan2(relative_v_z, np.sqrt(relative_v_x**2 + relative_v_y**2)) 
 
-    B = np.array([
-        [0, 0],
-        [0, 0],
-        [(1 / config["drone_mass"]), 0],
-        [0, 1 / config["drone_mass"]],
-    ], dtype=np.float32)
+    # Effective drag coefficients and areas
+    effective_Cd = (Cd_x * np.abs(np.cos(v_ang_xy)) + Cd_y * np.abs(np.sin(v_ang_xy)) + Cd_z * np.abs(np.sin(v_ang_z)))
+    effective_area = (area_x * np.abs(np.cos(v_ang_xy)) + area_y * np.abs(np.sin(v_ang_xy)) + area_z * np.abs(np.sin(v_ang_z)))
 
+    #drag_mag = 0.5 * air_density * effective_Cd * effective_area * (v_mag**2) #OFF
     
+    # Drag magnitudes
+    drag_mag_x = 0.5 * air_density * effective_Cd * effective_area * (relative_v_x**2)
+    drag_mag_y = 0.5 * air_density * effective_Cd * effective_area* (relative_v_y**2)
+    drag_mag_z = 0.5 * air_density * effective_Cd * effective_area * (relative_v_z**2)
 
-    #dynamics = np.einsum("ij,kj->ki", A, x) + np.einsum("ij,kj->ki", B, u - np.array([0, 9.81*config["drone_mass"]])) + drag
-    dynamics1 = np.einsum("ij,kj->ki", A, x)
-    dynamics2 = np.einsum("ij,kj->ki", B, u - np.array([0, 9.81*config["drone_mass"]]))
-    dynamics2[:,2] += drag_x
-    dynamics = dynamics1 + dynamics2
+    # Drag forces in each direction
+    drag_x = -np.sign(relative_v_x) * drag_mag_x * np.abs(np.cos(v_ang_xy)) / config["drone_mass"]
+    drag_y = -np.sign(relative_v_y) * drag_mag_y * np.abs(np.sin(v_ang_xy)) / config["drone_mass"]
+    drag_z = -np.sign(relative_v_z) * drag_mag_z * np.abs(np.sin(v_ang_z)) / config["drone_mass"]
+
+    # Simple Drag 
+    #drag_x = -np.sign(relative_v_x) * drag_mag_x / config["drone_mass"]
+    #drag_y = -np.sign(relative_v_y) * drag_mag_y / config["drone_mass"]
+    #drag_z = -np.sign(relative_v_z) * drag_mag_z / config["drone_mass"]
+
+    dims = config["dimensions"]
+    
+    if dims == 2:
+        A = np.array([
+            [0, 0, 1, 0],
+            [0, 0, 0, 1],
+            [0, 0, 0, 0],
+            [0, 0, 0, 0],
+        ], dtype=np.float32)
+
+        B = np.array([
+            [0, 0],
+            [0, 0],
+            [(1 / config["drone_mass"]), 0],
+            [0, 1 / config["drone_mass"]],
+        ], dtype=np.float32)
+
+        dynamics1 = np.einsum("ij,kj->ki", A, x)
+        dynamics2 = np.einsum("ij,kj->ki", B, u - np.array([0, 9.81*config["drone_mass"]]))
+        dynamics2[:,2] += drag_x
+        dynamics2[:,3] += drag_y
+        dynamics = dynamics1 + dynamics2
+
+    elif dims == 3:
+        A = np.array([
+            [0, 0, 0, 1, 0, 0],
+            [0, 0, 0, 0, 1, 0],
+            [0, 0, 0, 0, 0, 1],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+        ], dtype=np.float32)
+
+        B = np.array([
+            [0, 0, 0],
+            [0, 0, 0],
+            [0, 0, 0],
+            [(1 / config["drone_mass"]), 0, 0],
+            [0, 1 / config["drone_mass"], 0],
+            [0, 0, 1 / config["drone_mass"]],
+        ], dtype=np.float32)
+
+        dynamics1 = np.einsum("ij,kj->ki", A, x)
+        dynamics2 = np.einsum("ij,kj->ki", B, u - np.array([0, 0, 9.81*config["drone_mass"]]))
+        dynamics2[:,3] += drag_x
+        dynamics2[:,4] += drag_y
+        dynamics2[:,5] += drag_z  
+        dynamics = dynamics1 + dynamics2
 
     return dynamics
-
