@@ -102,10 +102,7 @@ class RK4Env(VecEnv):
 
         obs_prev = np.copy(self.buf_obs)
 
-        if self.dims == 2:
-            self.continuous_action = self.actions[:,0]
-        else:
-            self.continuous_action = self.actions[:,0:2]
+        self.continuous_action = self.actions[:,:self.dims - 1]
 
         discrete_action = np.where(self.actions[:, self.dims - 1] > 0.5, 1, 0)
         self.flip_discrete = discrete_action != self.discrete_action
@@ -113,7 +110,7 @@ class RK4Env(VecEnv):
         self.buf_obs[:,-1] = self.discrete_action
         self.buf_obs[:,-1] = np.where(obs_prev[:,-1] == 1, 1, self.buf_obs[:,-1])
 
-        #Sim time to stop is determined frm clip max / dt interval (need to confirm)
+        # Sim time to stop is determined frm clip max / dt interval (need to confirm)
         self.dt = np.where((self.buf_obs[:,-1] == 1), self.dt + .05, self.dt)
         self.dt = np.clip(self.dt, 0, 4)
         self.buf_obs[:, self.dims * 2 - 1] = np.where((self.buf_obs[:,-1] == 1) & (self.buf_obs[:,self.dims * 2 - 1] < self.cfg["target_speed"]), \
@@ -137,6 +134,7 @@ class RK4Env(VecEnv):
             self.buf_obs[:, 4] = self.continuous_action
         elif self.dims == 3:
             self.buf_obs[:, self.dims * 2:4*(self.dims - 1)] = self.continuous_action
+
 
         self.obs_hist[self.counter] = self.buf_obs[0]
         if self.dims == 2:
