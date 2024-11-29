@@ -1,0 +1,5 @@
+# Ignore specific directories in rl_demo
+rl_demo/wandb/
+rl_demo/policy/
+rl_demo/runs/
+rl_demo/__pycache__/

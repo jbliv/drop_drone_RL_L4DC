@@ -21,7 +21,7 @@ model = PPO(
     device=config["device"],
     tensorboard_log=f"runs/{run.id}",
     n_steps=config["rollout_steps"],
-    batch_size=config["minibatch_size"]
+    batch_size=config["minibatch_size"],
 )
 try:
     model.learn(
@@ -29,7 +29,7 @@ try:
         callback=[
             WandbCallback(
                 verbose=config["verbose"],
-                model_save_path= f"policy/{run.id}",  # f"models/{run.id}"
+                model_save_path=f"policy/{run.id}",  # f"models/{run.id}"
                 model_save_freq=100,  # 100
                 gradient_save_freq=100,  # 100
             ),

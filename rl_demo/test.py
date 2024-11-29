@@ -10,7 +10,6 @@ model = PPO.load(model_path, RK4Env(1, config=config, test=True, gif=True))
 # Create the environment for testing
 
 
-
 # Perform a single test run
 obs = model.env.reset()
 done = False
@@ -21,10 +20,9 @@ while not done:
     action, _ = model.predict(obs, deterministic=True)
     obs, reward, done, info = model.env.step(action)
     total_reward += reward
-    
-    
+
     # Log step information to wandb
-    
+
     step += 1
 
 
