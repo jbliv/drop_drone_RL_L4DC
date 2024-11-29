@@ -2,7 +2,7 @@ import torch
 
 config = {
     # Hyperparameters and policy controls
-    "num_envs": 1_000,
+    "num_envs": 1_0,
     "device": "cuda",
     "seed": 0,
     "rollout_steps": 150,  # how man time steps per rollout before training
@@ -18,7 +18,7 @@ config = {
     "sim_dt": 0.01,
     "policy_dt": 0.1,
     "dimensions": 3,
-    "max_time": 100,
+    "max_time": 150,
     "env_range": {
         "x": (-100000, 100000),
         "y": (-100000, 100000),
@@ -28,6 +28,7 @@ config = {
     "drone_mass": 2.3,
     "max_effort": 100,
     "p_gain": 1.5,  # Proportional gain for parachute modeling. In theory anything higher than drone mass is an unstable system
+    "parachute_max": 500,  # Max height parachute can be deployed
     "drone_ic_range": {
         "x": (-2000, 2000),
         "y": (-2000, 2000),
@@ -53,9 +54,9 @@ config = {
     "Cd_x": 0.8,
     "Cd_y": 0.8,
     "Cd_z": 0.35,
-    "area_x": 0.5,
-    "area_y": 0.5,
-    "area_z": 0.3,
+    "area_x": 0.08,
+    "area_y": 0.08,
+    "area_z": 0.04,
     "air_density": 1.225,
     # Plotting Variables
     "plot_frequency": 0,

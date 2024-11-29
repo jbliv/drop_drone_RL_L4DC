@@ -106,22 +106,17 @@ class RK4Env(VecEnv):
 
         self.obs_prev = np.copy(self.buf_obs)
         self.continuous_action = self.actions[:, 0 : self.dims - 1]
-        discrete_action = np.where(self.actions[:, self.dims - 1] > 0.5, 1, 0)
-        self.flip_discrete = discrete_action != self.discrete_action
+        semi_discrete_action = np.where(self.actions[:, self.dims - 1] > 0.5, 1, 0)
+        discrete_action = np.where(
+            self.buf_obs[:, self.dims - 1] > self.cfg["parachute_max"],
+            0,
+            semi_discrete_action,
+        )
         self.discrete_action = discrete_action
         self.buf_obs[:, -1] = self.discrete_action
         self.buf_obs[:, -1] = np.where(
             self.obs_prev[:, -1] == 1, 1, self.buf_obs[:, -1]
         )
-
-        # Sim time to stop is determined frm clip max / dt interval (need to confirm)
-        # self.dt = np.where((self.buf_obs[:,-1] == 1), self.dt + .05, self.dt)
-        # self.dt = np.clip(self.dt, 0, 4)
-        # self.buf_obs[:, self.dims * 2 - 1] = np.where((self.buf_obs[:,-1] == 1) & (self.buf_obs[:,self.dims * 2 - 1] < self.cfg["target_speed"]), \
-        # self.buf_obs[:,self.dims * 2 - 1] + (self.dt/4)*(self.cfg["target_speed"] - self.buf_obs[:,self.dims * 2 - 1]), self.buf_obs[:,self.dims * 2 - 1])
-
-        # self.buf_obs[:, self.dims * 2 - 1] = np.where((self.flip_discrete) & (self.buf_obs[:,self.dims * 2 - 1] > self.cfg["target_speed"]), self.cfg["target_speed"], self.buf_obs[:,self.dims * 2 - 1])
-        # self.buf_obs[:, 2] = np.where((self.flip_discrete) & (np.abs(self.buf_obs[:,2]) > 75), 20, self.buf_obs[:,2])
 
         self.continuous_action[:, :] = np.where(
             self.buf_obs[:, -1][:, np.newaxis] == 1,
@@ -509,8 +504,9 @@ class RK4Env(VecEnv):
 
             # Calculate the magnitude of the combined velocity vector
             velocity_magnitude = np.sqrt(
-                obs_plot[:, self.dims] ** 2 + obs_plot[:, self.dims + 1] ** 2,
-                obs_plot[:, self.dims + 2] ** 2,
+                obs_plot[:, self.dims] ** 2
+                + obs_plot[:, self.dims + 1] ** 2
+                + obs_plot[:, self.dims + 2] ** 2
             )
 
             # Create a color map based on velocity magnitude
@@ -744,7 +740,7 @@ class RK4Env(VecEnv):
 if __name__ == "__main__":
     import time
 
-    n = 10_000
+    n = 10
     T = 10
     env = RK4Env(n, config)
     u = np.array([[0] * n, [0.0] * n, [0] * n], dtype=np.float32).T

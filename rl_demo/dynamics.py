@@ -45,7 +45,7 @@ def double_integrator_dynamics(
     # Drag forces in each direction
     drag_x = -np.sign(relative_v_x) * drag_mag_x * np.abs(np.cos(v_ang_xy))
     drag_y = -np.sign(relative_v_y) * drag_mag_y * np.abs(np.sin(v_ang_xy))
-    drag_z = -np.sign(relative_v_z) * drag_mag_z * np.abs(np.sin(v_ang_z))
+    drag_z = -np.sign(relative_v_z) * drag_mag_z * np.abs(np.sin(v_ang_z)) * 0
 
     if dims == 2:
         A = np.array(
@@ -111,7 +111,7 @@ def double_integrator_dynamics(
 
         u[:, 0] += drag_x
         u[:, 1] += drag_y
-        u[:, 2] += drag_z
+        u[:, 2] += drag_z * (1 - d)
 
         dynamics1 = np.einsum("ij,kj->ki", A, x)
         dynamics2 = np.einsum(
