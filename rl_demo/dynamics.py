@@ -47,7 +47,7 @@ def double_integrator_dynamics(
         dynamics2[:,2] += horizontal_drag
         dynamics1[:,3] -= 9.81
         dynamics = dynamics1 + dynamics2 
-        
+    
 
     elif dims == 3:
         A = np.array([
