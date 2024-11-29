@@ -73,7 +73,7 @@ class RK4Env(VecEnv):
 
         self.num_envs = num_envs
 
-        self.flip_discrete = np.zeros((self.num_envs), dtype=bool)
+        self.flip_discrete = np.zeros((self.num_envs, self.dims - 1), dtype=bool)
         self.discrete_action = np.zeros((self.num_envs), dtype=np.float32)
         self.wind = np.zeros((self.num_envs), dtype=np.float32)
 
@@ -212,11 +212,20 @@ class RK4Env(VecEnv):
             self.plot_uploaded = False
             self.counter = 0
 
-        self.wind = self.rng.uniform(
+        wind_x = self.rng.uniform(
             low=-self.cfg["max_wind"],
             high=self.cfg["max_wind"],
             size=(len(idx), 1),
         )
+
+        wind_y = self.rng.uniform(
+            low=-self.cfg["max_wind"],
+            high=self.cfg["max_wind"],
+            size=(len(idx), 1),
+        )
+
+        self.wind = np.concatenate((wind_x, wind_y), axis=1)
+        print(self.wind)
 
         gx = self.rng.uniform(
             low=self.cfg["goal_ic_range"]["x"][0],

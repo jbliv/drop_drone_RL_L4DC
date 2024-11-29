@@ -6,14 +6,14 @@ def double_integrator_dynamics(
     x: np.ndarray,
     u: np.ndarray,
     d: np.ndarray,
-    wind_speed: np.ndarray = np.array([0, 0]),
+    wind_speed: np.ndarray,
     **kwargs,
 ) -> np.ndarray:
     """Double Integrator Dynamics with wind and drag"""
     dims = config["dimensions"]
 
-    relative_v_x = x[:, 3] - wind_speed[0]
-    relative_v_y = x[:, 4] - wind_speed[1]
+    relative_v_x = x[:, 3]  # - wind_speed[:, 0]
+    relative_v_y = x[:, 4]  # - wind_speed[:, 1]
     relative_v_z = x[:, 5]
 
     v_ang_xy = np.arctan2(relative_v_y, relative_v_x)

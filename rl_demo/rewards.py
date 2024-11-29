@@ -19,7 +19,6 @@ def double_integrator_rewards(
     Action:
     u: [Tx, Ty, Tz, deploy] -> [num_envs, 4]
     """
-
     dims = config["dimensions"]
     target_range = config["target_distance"]
 
