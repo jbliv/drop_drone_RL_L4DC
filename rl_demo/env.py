@@ -75,7 +75,7 @@ class RK4Env(VecEnv):
 
         self.flip_discrete = np.zeros((self.num_envs, self.dims - 1), dtype=bool)
         self.discrete_action = np.zeros((self.num_envs), dtype=np.float32)
-        self.wind = np.zeros((self.num_envs), dtype=np.float32)
+        self.wind = np.zeros((self.num_envs, self.dims - 1), dtype=np.float32)
 
         self.buf_obs = np.zeros((self.num_envs, num_obs))
         self.obs_prev = np.zeros((self.num_envs, num_obs))
@@ -185,7 +185,9 @@ class RK4Env(VecEnv):
         self.counter = min(self.counter + 1, self.obs_hist.shape[0] - 1)
         reset_idx = np.argwhere(self.buf_dones).flatten()
         if reset_idx.size > 0:
-            self.buf_obs[reset_idx], self.t[reset_idx] = self.reset_idx(reset_idx)
+            self.buf_obs[reset_idx], self.t[reset_idx], self.wind[reset_idx] = (
+                self.reset_idx(reset_idx)
+            )
 
         return (
             np.copy(self.buf_obs),
@@ -224,8 +226,7 @@ class RK4Env(VecEnv):
             size=(len(idx), 1),
         )
 
-        self.wind = np.concatenate((wind_x, wind_y), axis=1)
-        print(self.wind)
+        wind = np.concatenate((wind_x, wind_y), axis=1)
 
         gx = self.rng.uniform(
             low=self.cfg["goal_ic_range"]["x"][0],
@@ -319,12 +320,12 @@ class RK4Env(VecEnv):
             obs = np.concatenate((x0, y0, z0, vx0, vy0, vz0, gx, gy, gz, T, D), axis=1)
         t = np.zeros((len(idx),), dtype=np.float32)
 
-        return obs, t
+        return obs, t, wind
 
     def reset(self, seed=None, options=None) -> VecEnvObs:
 
         idx = self._get_indices(None)
-        self.buf_obs, self.t = self.reset_idx(idx)
+        self.buf_obs, self.t, self.wind = self.reset_idx(idx)
         print("declared")
         self.initial_distance = np.linalg.norm(
             self.buf_obs[:, self.dims * 2 : self.dims * 3]
