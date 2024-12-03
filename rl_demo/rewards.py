@@ -17,7 +17,7 @@ def double_integrator_rewards(ID, x: np.ndarray, u: np.ndarray) -> np.ndarray:
     """
     # task rewards
     dims = config["dimensions"]
-    pose_error = np.linalg.norm(x[:, dims * 3 - 1:dims * 4 - 1] - x[:, 0:dims], axis=1)
+    pose_error = np.linalg.norm(x[:, dims * 2:dims * 2 + 2] - x[:, 0:dims], axis=1)
     tracking_std = ID # Initial Distance of agent from target
     goal_tracking = tracking_std*np.exp(-(2.5*pose_error/tracking_std)**2)
     reward = goal_tracking
